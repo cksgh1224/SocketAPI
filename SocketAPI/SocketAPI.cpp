@@ -271,4 +271,50 @@ void Socket::UnicodeToAscii(char* ap_dest_ip, wchar_t* ap_src_ip)
 
 
 
+// UserData 클래스 메서드들
+
+// 멤버변수 초기화, 전송과 수신에 사용할 객체 생성
+UserData::UserData()
+{
+	mh_socket = INVALID_SOCKET; // 소켓 핸들 초기화
+	m_ip_address[0] = 0; // 주소 값 초기화
+	mp_send_man = new SendManager(); // 전송용 객체 생성
+	mp_recv_man = new RecvManager(); // 수신용 객체 생성
+}
+
+
+// 사용하던 소켓 제거, 전송과 수신에 사용한 객체 제거
+UserData::~UserData()
+{
+	// 소켓이 생성되어 있다면 소켓을 제거
+	if (mh_socket != INVALID_SOCKET) closesocket(mh_socket);
+
+	// 전송과 수신을 위해 생성했던 객체 제거
+	delete mp_send_man;
+	delete mp_recv_man;
+}
+
+
+// 연결된 소켓을 닫고 초기화
+void UserData::CloseSocket(int a_linger_flag)
+{
+	// 제거하고자 하는 소켓으로 데이터가 수신 중이면 수신이 완료될때 까지 제거를 못하기 때문에 소켓을 즉시 닫고 싶으면 링거 옵션 사용
+
+	if (mh_socket != INVALID_SOCKET) // 소켓이 생성되어 있다면
+	{
+		if (a_linger_flag)
+		{
+			LINGER temp_linger = { TRUE, 0 }; // 데이터가 송수신되는 것과 상관없이 소켓을 바로 닫겠다
+			setsockopt(mh_socket, SOL_SOCKET, SO_LINGER, (char*)&temp_linger, sizeof(temp_linger)); // mh_socket소켓의 LINGER 옵션 변경
+		}
+		
+		closesocket(mh_socket); // 소켓을 닫는다
+		mh_socket = INVALID_SOCKET; // 소켓 핸들 초기화
+	}
+}
+
+
+
+
+
 // 

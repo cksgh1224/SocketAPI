@@ -114,4 +114,86 @@ public:
 
 
 
+// 사용자 정보 관리용 클래스 (하나의 사용자 정보를 저장하기 위한 클래스)
+// 서버용 소켓에서 접속된 클라이언트를 관리하기 위해 사용
+class UserData
+{
+protected:
+	// 클라이언트와 통신하기 위해 사용할 소켓 핸들 
+	SOCKET mh_socket; // 클라이언트 소켓이 접속을 시도하면 서버는 accept함수를 통해 해당 클라이언트와 통신할 새로운 소켓 핸들을 만든다
+
+	// 클라이언트에게 큰 데이터를 전송하기 위해 사용할 객체
+	SendManager* mp_send_man; // mh_socket과 연결되어 있는 클라이언트 소켓에 큰 크기의 데이터를 전송할 때 사용 
+
+	// 클라이언트에게서 큰 데이터를 수신하기 위해 사용할 객체
+	RecvManager* mp_recv_man; // mh_socket과 연결되어 있는 클라이언트 소켓으로부터 큰 크기의 데이터를 수신할 때 사용 
+
+	wchar_t m_ip_address[16]; // 접속한 클라이언트의 IP 주소
+
+public:
+	UserData(); // 멤버변수 초기화, 전송과 수신에 사용할 객체 생성
+	~UserData(); // 사용하던 소켓 제거, 전송과 수신에 사용한 객체 제거
+
+
+	// 멤버변수의 값을 클래스 외부에서 사용할 수 있도록 해줄 인터페이스 함수들
+	inline SOCKET GetHandle() { return mh_socket; }
+	inline void SetHandle(SOCKET ah_socket) { mh_socket = ah_socket; }
+	inline SendManager* GetSendMan() { return mp_send_man; }
+	inline RecvManager* GetRecvMan() { return mp_recv_man; }
+	inline wchar_t* GetIP() { return m_ip_address; }
+	inline void SetIP(const wchar_t* ap_ip_address) { wcscpy(m_ip_address, ap_ip_address);  }
+
+
+	// 서버 소켓 클래스에서 클라이언트가 접속을 해제할 때 소켓을 닫고 초기화하는 작업을 해야 하는데 클라이언트의 소켓 핸들을
+	// 이 클래스가 가지고 있어서 매번 GetHandle, SetHandle 함수를 반복적으로 사용해야 하는 불편함이 있다
+	// 그래서 아래와 같이 CloseSocket 함수를 추가로 제공한다
+	// DisconnectSocket 에서 CloseSocket 갖다 쓸수 있지 않을까?
+	void CloseSocket(int a_linger_flag); // 연결된 소켓을 닫고 초기화
+
+
+	// 다형성 적용 시, 동일한 클래스를 확장할 때 이 함수를 사용한다 (UserAccount)
+	virtual UserData* CreateObject() { return new UserData; }
+};
+
+
+
+// 로그인 개념을 사용하기 위해 아이디나 암호 같은 정보를 추가로 관리할 필요가 있다면
+// UserData에서 상속받은 새로운 클래스 UserAccount를 만들어서 사용
+// UserAccount 클래스는 UserData에서 상속받았기 때문에 다형성을 적용하면 UserAccount로 만들어진 객체의 주소를 UserData클래스의 포인터로 사용할 수 있다
+// 따라서 서버용 소켓이 UserData클래스의 포인터를 사용해서 프로그램이 되어 있더라도 
+// UserAccount로 메모리를 동적할당해서 넘겨주면 서버용 소켓 내부적으로는 UserAccount클래스로 만들어진 객체가 사용된다
+class UserAccount : public UserData
+{
+protected:
+	wchar_t id[32]; // 사용자의 아이디
+	wchar_t password[32]; // 사용자의 비밀번호
+
+public:
+	wchar_t* GetID() { return id; }
+	void SetID(const wchar_t* ap_id) { wcscpy(id, ap_id); }
+	wchar_t* GetPassword() { return password; }
+	void SetPassword(const wchar_t* ap_password) { wcscpy(password, ap_password); }
+
+
+	// UserAccount 클래스는 서버용 소켓을 만들고 나서 나중에 사용자가 필요해서 정의하는 것이기 때문에 서버용 소켓을 만드는 시점에는 UserAccount 클래스가 없다
+	// 이 부분을 해결하기 위해 CreateObject 함수 사용
+
+	// 다형성 적용 시, 동일한 클래스를 확장할 때 이 함수를 사용한다
+	virtual UserData* CreateObject() { return new UserAccount; }
+	// CreateObject 함수가 추가되면 다형성이 적용된 소스에서 UserAccount클래스를 모르더라도 CreateObject함수를 사용하면 현재 사용하는 객체와 동일한 객체를 생성할 수 있다
+	// 이것이 가능하려면 소켓 클래스 생성 시에 new UserAccount값을 인자로 넘겨서 사용자 정보를 저장할 클래스를 생성해서 넘겨줘야 된다
+
+	// ex)
+	// ServerSocket my_server(0x27, MAX_USER_COUNT, new UserAccount); // 사용자 정보를 UserAccount로 사용하고 싶다면
+	// ServerSocket my_server(0x27, MAX_USER_COUNT, new UserData);    // 사용자 정보를 UserData로 사용하고 싶다면
+};
+
+
+
+// 접속된 사용자 관리 -> UserData 클래스는 하나의 사용자 정보를 저장하기 위한 클래스이기 때문에 
+// 이 클래스를 사용하여 여러 명의 사용자를 관리할 수 있도록 구현해야 한다 -> 서버용 소켓 클래스에서 구현
+// [서버 소켓 클래스에서 사용자 관리하는 부분을 별도의 클래스로 분리해서 코드로 구성해보기]
+
+
+
 // 
