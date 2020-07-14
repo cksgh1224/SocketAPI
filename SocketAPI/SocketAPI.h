@@ -1,5 +1,7 @@
 #pragma once
 
+#include <WinSock2.h>
+
 // 소켓으로 데이터를 주고받을때 큰용량의 데이터를 한 번에 전송하면 전송 부하만 심해질 뿐 전송이 제대로 되지 않기 때문에
 // 데이터를 나누어서 전송하고 수신하는 측에서 데이터를 다시 합쳐서 사용한다 (Socket class)
 
@@ -57,4 +59,59 @@ public:
 
 
 
-// Socket 클래스 - 전송할 데이터를 나누거나 수신된 데이터를 하나로 합치는 작업을 담당할 클래스 
+// 네트워크 프레임 구조 (Head + Body)
+// Head 4byte : 구분값 1byte, Message ID 1byte, Body size 2byte
+// 구분값 : 네트워크로 데이터가 수신되었을 때, 이 데이터가 내가 원하는 데이터인지 체크 (1byte)
+// Message ID : Body에 저장된 데이터의 종류를 구분 (ex. Message ID가 1이면 Body에 저장된 값이 로그인 정보, 2이면 채팅 데이터) (1byte)
+// Body size : Body에 저장된 데이터의 크기 (2byte)
+// Body : 프로그램이 어떤 작업을 위해 실제로 사용할 정보가 저장 (크기 : Head의 Body size)
+
+typedef unsigned short BS; // Body size (2byte)
+#define HEAD_SIZE 2+sizeof(BS) // Head size (key + message_id + body_size)
+#define LM_SEND_COMPLETED 29001
+#define LM_RECV_COMPLETED 29002
+
+
+
+// 서버, 클라이언트 클래스의 중복 기능을 구현하는 클래스
+// 전송할 데이터를 나누거나 수신된 데이터를 하나로 합치는 작업
+class Socket
+{
+protected:
+	unsigned char m_valid_key; // 구분값 (프로토콜의 유효성을 체크하기 위한 값)
+	char* mp_send_data, * mp_recv_data; // 전송, 수신에 사용할 메모리
+	HWND mh_notify_wnd; // 윈도우 핸들 (소켓에 새로운 데이터가 수신되었거나 연결 해제되었을 때 발생하는 메시지를 수신할 윈도우 핸들)
+	int m_data_notify_id; // 데이터가 수신되거나 상대편이 접속을 해제했을 때 사용할 메시지 ID. 소켓에 비동기 이벤트(FD_READ | FD_CLOSE)가 발생했을 때 윈도우 핸들에 넘겨줄 메시지 ID
+
+public:
+	Socket(unsigned char a_valid_key, int a_data_notify_id); // 객체 생성시에 프로토콜 구분 값과 데이터 수신 및 연결 해제에 사용할 메시지 ID 지정
+	~Socket();
+
+
+	// 데이터 전송 함수 (전달된 정보를 가지고 mp_send_data 메모리에 약속된 Head 정보를 구성해서 전송)
+	int SendFrameData(SOCKET ah_socket, unsigned char a_message_id, const char* ap_body_data, BS a_body_size);
+
+	// 안정적인 데이터 수신 (재시도 수신)
+	int ReceiveData(SOCKET ah_socket, BS a_body_size);
+
+	// 데이터가 수신되었을 때 수신된 데이터를 처리하는 함수
+	void ProcessRecvEvent(SOCKET ah_socket);
+
+
+	// DisconnectSocket, ProcessRecvData 함수는 서버 소켓인지 클라이언트 소켓인지에 따라 내용이 달라질 수 있으므로 
+	// 가상함수로 선언하고 사용하는 클래스에서 재정의하여 사용
+	
+	// 접속된 대상을 끊는 함수 (자식 클래스에서 재정의)	
+	virtual void DisconnectSocket(SOCKET ah_socket, int a_error_code) = 0; 
+	// 수신된 데이터를 처리하는 함수 (자식 클래스에서 재정의)
+	virtual int ProcessRecvData(SOCKET ah_socket, unsigned char a_msg_id, char* ap_recv_data, BS a_body_size) = 0; 
+
+
+	// IP 주소의 문자열 형식 변환 함수 (ASCII 1byte, 유니코드 2byte)
+	static void AsciiToUnicode(wchar_t* ap_dest_ip, char* ap_src_ip); // ASCII 형식의 문자열을 유니코드로 변환
+	static void UnicodeToAscii(char* ap_dest_ip, wchar_t* ap_src_ip); // 유니코드 형식의 문자열을 ASCII로 변환
+};
+
+
+
+// 
