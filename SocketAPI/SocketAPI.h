@@ -1,5 +1,7 @@
 #pragma once
 
+#include "pch.h"
+#include "framework.h"
 #include <WinSock2.h>
 
 // 소켓으로 데이터를 주고받을때 큰용량의 데이터를 한 번에 전송하면 전송 부하만 심해질 뿐 전송이 제대로 되지 않기 때문에
@@ -39,8 +41,8 @@ public:
 	// 전송할 위치와 크기 계산 (전송 시작 위치 변경) (큰 크기의 데이터를 나눌때 사용)
 	int GetPosition(char** ap_data, int a_data_size = 2048); 
 	
-	// 총 전송된 크기와 할당된 메모리 전체 크기를 비교하여 전송이 완료되었는지 체크 (전송 완료: 1반환) 
-	inline int IsProcessing() { return m_total_size == m_current_size; }
+	// 총 전송된 크기와 할당된 메모리 전체 크기를 비교하여 전송이 완료되었는지 체크
+	inline int IsProcessing() { return m_total_size != m_current_size; } // 전송할 데이터가 남아있으면 1반환 (전송중)
 };
 
 
@@ -68,8 +70,8 @@ public:
 
 typedef unsigned short BS; // Body size (2byte)
 #define HEAD_SIZE 2+sizeof(BS) // Head size (key + message_id + body_size)
-#define LM_SEND_COMPLETED 29001
-#define LM_RECV_COMPLETED 29002
+#define LM_SEND_COMPLETED 29001 // 대용량 데이터가 전송 완료 되었을 때 사용할 메시지 (윈도우에서 전송이 완료되었음을 알리고 싶다면 LM_SEND_COMPLETED 메시지를 사용)
+#define LM_RECV_COMPLETED 29002 // 대용량 데이터가 전송 완료 되었을 때 사용할 메시지 (윈도우에서 수신이 완료된 데이터를 사용하려면 LM_RECV_COMPLETED 메시지를 사용)
 
 
 
@@ -81,7 +83,8 @@ protected:
 	unsigned char m_valid_key; // 구분값 (프로토콜의 유효성을 체크하기 위한 값)
 	char* mp_send_data, * mp_recv_data; // 전송, 수신에 사용할 메모리
 	HWND mh_notify_wnd; // 윈도우 핸들 (소켓에 새로운 데이터가 수신되었거나 연결 해제되었을 때 발생하는 메시지를 수신할 윈도우 핸들)
-	int m_data_notify_id; // 데이터가 수신되거나 상대편이 접속을 해제했을 때 사용할 메시지 ID. 소켓에 비동기 이벤트(FD_READ | FD_CLOSE)가 발생했을 때 윈도우 핸들에 넘겨줄 메시지 ID
+	int m_data_notify_id; // 데이터가 수신되거나 상대편이 접속을 해제했을 때 사용할 메시지 ID (FD_READ, FD_CLOSE 이벤트시에 발생할 메시지) (윈도우 핸들에 넘겨줄 메시지 ID)
+
 
 public:
 	Socket(unsigned char a_valid_key, int a_data_notify_id); // 객체 생성시에 프로토콜 구분 값과 데이터 수신 및 연결 해제에 사용할 메시지 ID 지정
@@ -147,7 +150,6 @@ public:
 	// 서버 소켓 클래스에서 클라이언트가 접속을 해제할 때 소켓을 닫고 초기화하는 작업을 해야 하는데 클라이언트의 소켓 핸들을
 	// 이 클래스가 가지고 있어서 매번 GetHandle, SetHandle 함수를 반복적으로 사용해야 하는 불편함이 있다
 	// 그래서 아래와 같이 CloseSocket 함수를 추가로 제공한다
-	// DisconnectSocket 에서 CloseSocket 갖다 쓸수 있지 않을까?
 	void CloseSocket(int a_linger_flag); // 연결된 소켓을 닫고 초기화
 
 
@@ -196,4 +198,85 @@ public:
 
 
 
-// 
+// 서버용 소켓 클래스
+// 서버는 listen (클라이언트의 연결 요청 대기 ) 기능을 수행하는 작업을 제일 먼저 해야 한다.
+// listen 작업이 시작되면 새로운 사용자들이 접속을 하게 되고 접속의 허락과 동시에 사용자 관리 개념이 필요하다.
+// 접속한 사용자들과 정해진 프로토콜로 통신을 하면서 접속을 해제할 때 까지 네트워크 작업이 지속된다
+class ServerSocket : public Socket
+{
+protected:
+	SOCKET mh_listen_socket; // listen 작업에 사용할 소켓 핸들 (클라이언트의 접속을 받아주는 소켓)
+	int m_accept_notify_id; // 새로운 클라이언트가 접속했을 때 발생할 메시지 ID 값 (FD_ACCEPT 이벤트시에 발생할 메시지 ID)
+	unsigned short m_max_user_count; // 서버가 관리할 최대 사용자 수 (서버에 접속 가능한 최대 사용자 수 - 최대 65535명)
+	UserData** mp_user_list; // 최대 사용자를 저장하기 위해서 사용할 객체들 (이중 포인터)
+
+	// UserData** mp_user_list;  ->  객체 생성자를 직접 사용할 수 있는 형태로 만들기 위해 이중 포인터 사용
+	// 객체 생성자에서 mp_user_list에 접속하는 최대 사용자 수만큼 메모리를 할당해야 하는데 아래와 같이 일차원 포인터를 사용해서 구성할 수도 있다
+	// UserData* mp_user_list = new UserData[m_max_user_count];
+	// 이렇게 구성하면 사용자 정보를 저장할 객체가 UserData로 고정되어 버리기 때문에 다형성 구조를 만드는데 문제가 생긴다
+
+public:
+	ServerSocket(unsigned char a_valid_key, unsigned short a_max_user_count, UserData* ap_user_data, int a_accept_notify_id = 25001, int a_data_notify_id = 25002);
+	virtual ~ServerSocket(); // 가상 파괴자
+
+	// 가상 파괴자가 필요한 경우 : 기초, 파생 클래스에서 파괴자를 정의한 경우
+	// 기초 클래스의 파괴자가 가상이 아니라면 포인터형에 해당하는(기초 클래스) 파괴자만 호출된다 (객체형에 해당하는 파괴자가 호출되지 않는다)
+	// B클래스가 A로부터 상속받고 A,B 클래스 모두 파괴자가 있는 상태에서 A클래스의 파괴자가 가상이 아니라면
+	// A* test = new B(); delete test; -> A의 파괴자만 호출 (B의 파괴자는 호출되지 않는다)
+
+
+	// 서버 서비스의 시작 (listen 작업을 수행할 함수)
+	int StartServer(const wchar_t* ap_ip_address, int a_port, HWND ah_notify_wnd);
+
+	// 클라이언트의 접속 처리 (FD_ACCEPT 처리 함수)
+	int ProcessToAccept(WPARAM wParam, LPARAM lParam);
+
+
+	// 추가작업
+	virtual void AddWorkForAccept(UserData* ap_user) = 0; // Accept 시에 추가적으로 해야할 작업이 있다면 이 함수를 오버라이딩해서 처리	
+	virtual void ShowLimitError(const wchar_t* ap_ip_address) = 0; // 최대 사용자수 초과시에 추가적으로 해야할 작업이 있다면 이 함수를 오버라이딩해서 처리
+
+
+	// 클라이언트의 네트워크 이벤트 처리 (FD_READ, FD_CLOSE 처리 함수)
+	void ProcessClientEvent(WPARAM wParam, LPARAM lParam);
+
+
+	// 클라이언트 접속 해제시에 추가적인 작업이 필요하다면 상속받은 클래스에서 이 함수를 재정의해서 사용
+	// a_error_code : 0이면 정상종료, -1이면 키값이 유효하지 않아서 종료, -2이면 바디정보 수신중에 오류 발생
+	virtual void AddWorkForCloseUser(UserData* ap_user, int a_error_code) = 0;
+	
+
+	// 각종 네트워크 이벤트에 의해 메시지가 발생하면, 해당 이벤트가 발생한 소켓의 핸들이 메시지의 wParam항목으로 전달된다
+	// 서버는 여러 명의 사용자가 동시에 접속해서 사용하기 때문에 해당 소켓이 어떤 사용자의 소켓인지 알 수 없다
+	
+	// 소켓 핸들을 사용하여 어떤 사용자인지 찾는다 (찾으면 사용자의 위치를 반환)
+	inline int FindUserIndex(SOCKET ah_socket)
+	{
+		for (int i = 0; i < m_max_user_count; i++)
+			if (mp_user_list[i]->GetHandle() == ah_socket) return i;
+
+		return -1;
+	}
+
+	// 소켓 핸들을 사용하여 어떤 사용자인지 찾는다 (찾으면 사용자 정보를 관리하는 객체의 주소를 반환)
+	inline UserData* FindUserData(SOCKET ah_socket)
+	{
+		for (int i = 0; i < m_max_user_count; i++)
+			if (mp_user_list[i]->GetHandle() == ah_socket) return mp_user_list[i];
+
+		return NULL;
+	}
+
+
+	// 연결된 소켓을 닫고 초기화 (소켓 핸들 이용) (UserData::CloseSocket 사용)
+	void DisconnectSocket(int ah_socket, int a_error_code);
+
+
+	// 수신된 데이터를 처리하는 함수
+	int ProcessRecvData(SOCKET ah_socket, unsigned char a_msg_id, char* ap_recv_data, BS a_body_size);
+
+
+	// 서버에서 관리하는 전체 사용자에 대한 정보나 최대 사용자 수를 외부에서 이용할 수 있도록 해주는 함수
+	inline UserData** GetUserList() { return mp_user_list; } // 전체 사용자에 대한 정보
+	unsigned short GetMaxUserCount() { return m_max_user_count; } // 최대 사용자 수
+};
