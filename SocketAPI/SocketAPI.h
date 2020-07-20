@@ -72,6 +72,8 @@ typedef unsigned short BS; // Body size (2byte)
 #define HEAD_SIZE 2+sizeof(BS) // Head size (key + message_id + body_size)
 #define LM_SEND_COMPLETED 29001 // 대용량 데이터가 전송 완료 되었을 때 사용할 메시지 (윈도우에서 전송이 완료되었음을 알리고 싶다면 LM_SEND_COMPLETED 메시지를 사용)
 #define LM_RECV_COMPLETED 29002 // 대용량 데이터가 전송 완료 되었을 때 사용할 메시지 (윈도우에서 수신이 완료된 데이터를 사용하려면 LM_RECV_COMPLETED 메시지를 사용)
+// a_accept_notify_id = 25001 // FD_ACCEPT 발생시 윈도우에 전달할 메시지 ID
+// a_data_notify_id = 25002   // FD_READ, FD_CLOSE 발생시 윈도우에 전달할 메시지 ID
 
 
 
@@ -268,8 +270,8 @@ public:
 	}
 
 
-	// 연결된 소켓을 닫고 초기화 (소켓 핸들 이용) (UserData::CloseSocket 사용)
-	void DisconnectSocket(int ah_socket, int a_error_code);
+	// 클라이언트와 접속을 강제로 해제하기 (연결된 소켓을 닫고 초기화) (UserData::CloseSocket 사용)
+	void DisconnectSocket(SOCKET ah_socket, int a_error_code);
 
 
 	// 수신된 데이터를 처리하는 함수
@@ -279,4 +281,51 @@ public:
 	// 서버에서 관리하는 전체 사용자에 대한 정보나 최대 사용자 수를 외부에서 이용할 수 있도록 해주는 함수
 	inline UserData** GetUserList() { return mp_user_list; } // 전체 사용자에 대한 정보
 	unsigned short GetMaxUserCount() { return m_max_user_count; } // 최대 사용자 수
+};
+
+
+
+// 클라이언트용 소켓 클래스
+// 서버에 접속해서 서비스를 제공받는 형태이기 때문에 소켓을 한개만 사용해도 충분히 작업이 가능
+// 서버에 접속을 시도할 때 지연시간이 있을 수 있고 접속을 실패할 수도 있기 때문에 접속 상태를 별도로 가지고 있어야 한다
+// connect 함수를 사용해서 서버에 접속을 시도하면 서버에 문제가 있을 경우 응답없음 상태에 빠질 수 있으므로 비동기 설정
+// 서버 접속에 대한 결과 이벤트인 FD_CONNECT가 발생하면 클라이언트 소켓을 사용하는 윈도우에 메시지 전달
+// 서버에 큰 용량의 데이터를 전송하거나 서버로부터 큰 용량의 데이터를 수신 받을때 사용할 객체를 가지고 있어야 한다
+class ClientSocket : public Socket
+{
+protected:
+	SOCKET mh_socket; // 서버와 통신하기 위해 사용할 소켓 핸들
+	char m_connect_flag; // 0: 접속 안됨, 1: 접속 시도중, 2: 접속중
+	int m_connect_notify_id; // 서버에 접속을 시도한 결과를 알려줄 윈도우 메시지 ID (FD_CONNECT)
+	SendManager m_send_man; // 서버에 큰 데이터를 전송하기 위해 사용할 객체
+	RecvManager m_recv_man; // 서버에 큰 데이터를 수신하기 위해 사용할 객체
+
+public:
+	ClientSocket(unsigned char a_valid_key, int a_connect_notify_id, int a_data_notify_id);
+	~ClientSocket();
+
+
+	// 서버에 접속하기
+	int ConnectToServer(const wchar_t* ap_ip_address, int a_port_num, HWND ah_notify_wnd); 
+
+	// 접속 시도에 대한 결과 처리하기 (FD_CONNECT)
+	int ResultOfConnection(LPARAM lParam); 
+
+	// 데이터 수신 처리와 서버 연결 해제에 대한 처리 (FD_READ, FD_CLOSE)
+	int ProcessServerEvent(WPARAM wParam, LPARAM lParam); 
+
+	// 서버와 접속을 강제로 해제하기
+	void DisconnectSocket(SOCKET ah_socket, int a_error_code);
+
+	
+	// 데이터 전송 함수 (전달된 정보를 가지고 mp_send_data 메모리에 약속된 Head 정보를 구성해서 전송)
+	int SendFrameData(unsigned char a_message_id, const char* ap_body_data, BS a_body_size); // Socket::SendFrameData 오버로딩
+
+	// 수신된 데이터를 처리하는 함수
+	int ProcessRecvData(SOCKET ah_socket, unsigned char a_msg_id, char* ap_recv_data, BS a_body_size);
+
+
+	 
+	inline int IsConnected() { return m_connect_flag == 2; } // 서버와의 접속상태를 알고 싶을때 사용 (반환값 0:해제상태, 1: 접속상태)  내부적으로는 상태를 세가지로 관리하지만 외부에 알려줄때는 두가지 상태로 알려준다 ('접속 시도중' 상태는 해제로 간주한다)
+	inline SOCKET GetHandle() { return mh_socket; } // 서버와 통신하기 위해 생성한 소켓의 핸들 값을 알고 싶을 때 사용
 };
