@@ -289,7 +289,7 @@ public:
 
 
 	// 수신된 데이터를 처리하는 함수
-	int ProcessRecvData(SOCKET ah_socket, unsigned char a_msg_id, char* ap_recv_data, BS a_body_size);
+	virtual int ProcessRecvData(SOCKET ah_socket, unsigned char a_msg_id, char* ap_recv_data, BS a_body_size);
 
 
 	// 서버에서 관리하는 전체 사용자에 대한 정보나 최대 사용자 수를 외부에서 이용할 수 있도록 해주는 함수
@@ -336,7 +336,7 @@ public:
 	int SendFrameData(unsigned char a_message_id, const char* ap_body_data, BS a_body_size); // Socket::SendFrameData 오버로딩
 
 	// 수신된 데이터를 처리하는 함수
-	int ProcessRecvData(SOCKET ah_socket, unsigned char a_msg_id, char* ap_recv_data, BS a_body_size);
+	virtual int ProcessRecvData(SOCKET ah_socket, unsigned char a_msg_id, char* ap_recv_data, BS a_body_size);
 
 
 	 
