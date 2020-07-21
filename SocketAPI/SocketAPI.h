@@ -1,8 +1,22 @@
+/*
+#include "SocketAPI.h"
+
+#pragma comment(lib, "WS2_32.lib")
+
+#ifdef _DEBUG
+	#pragma comment(lib, "D_SocketAPI.lib") // Debug 
+#else 
+	#pragma comment(lib, "R_SocketAPI.lib") // Release
+#endif
+*/
+
 #pragma once
 
 #include "pch.h"
 #include "framework.h"
+
 #include <WinSock2.h>
+
 
 // 소켓으로 데이터를 주고받을때 큰용량의 데이터를 한 번에 전송하면 전송 부하만 심해질 뿐 전송이 제대로 되지 않기 때문에
 // 데이터를 나누어서 전송하고 수신하는 측에서 데이터를 다시 합쳐서 사용한다 (Socket class)
