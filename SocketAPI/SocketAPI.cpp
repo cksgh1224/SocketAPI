@@ -3,8 +3,9 @@
 
 #include "pch.h"
 #include "framework.h"
+
 #include "SocketAPI.h"
-#include <cstring>
+
 
 // ExchangeManager 클래스 메서드들
 
@@ -358,7 +359,7 @@ ServerSocket::~ServerSocket()
 }
 
 
-// 서버 서비스의 시작 (listen 작업을 수행할 함수)
+// 서버 서비스의 시작 (listen 작업을 수행할 함수) (socket - bind - listen)
 // StartServer 함수를 사용하면 클라이언트가 접속할 수 있는 상태가 된다
 int ServerSocket::StartServer(const wchar_t* ap_ip_address, int a_port, HWND ah_notify_wnd)
 {

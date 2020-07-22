@@ -10,11 +10,12 @@
 #endif
 */
 
-#pragma once
 
-#include "pch.h"
-#include "framework.h"
+#ifndef _SOCKETAPI_H_
+#define _SOCKETAPI_H_
 
+#define _WINSOCK_DEPRECATED_NO_WARNINGS
+#define _CRT_SECURE_NO_WARNINGS
 #include <WinSock2.h>
 
 
@@ -241,7 +242,7 @@ public:
 	// A* test = new B(); delete test; -> A의 파괴자만 호출 (B의 파괴자는 호출되지 않는다)
 
 
-	// 서버 서비스의 시작 (listen 작업을 수행할 함수)
+	// 서버 서비스의 시작 (listen 작업을 수행할 함수) (socket - bind - listen)
 	int StartServer(const wchar_t* ap_ip_address, int a_port, HWND ah_notify_wnd);
 
 	// 클라이언트의 접속 처리 (FD_ACCEPT 처리 함수)
@@ -343,3 +344,6 @@ public:
 	inline int IsConnected() { return m_connect_flag == 2; } // 서버와의 접속상태를 알고 싶을때 사용 (반환값 0:해제상태, 1: 접속상태)  내부적으로는 상태를 세가지로 관리하지만 외부에 알려줄때는 두가지 상태로 알려준다 ('접속 시도중' 상태는 해제로 간주한다)
 	inline SOCKET GetHandle() { return mh_socket; } // 서버와 통신하기 위해 생성한 소켓의 핸들 값을 알고 싶을 때 사용
 };
+
+
+#endif
