@@ -319,7 +319,7 @@ protected:
 
 public:
 	ClientSocket(unsigned char a_valid_key, int a_connect_notify_id, int a_data_notify_id);
-	~ClientSocket();
+	virtual ~ClientSocket();
 
 
 	// 서버에 접속하기
