@@ -104,7 +104,7 @@ protected:
 
 
 public:
-	Socket(unsigned char a_valid_key, int a_data_notify_id); // 객체 생성시에 프로토콜 구분 값과 데이터 수신 및 연결 해제에(FD_READ, FD_CLOSE) 사용할 메시지 ID 지정
+	Socket(unsigned char a_valid_key, int a_data_notify_id); // 객체 생성시에 프로토콜 구분 값과 데이터 수신 및 연결 해제에 사용할 메시지 ID 지정
 	~Socket();
 
 
@@ -318,10 +318,7 @@ protected:
 	RecvManager m_recv_man; // 서버에 큰 데이터를 수신하기 위해 사용할 객체
 
 public:
-	ClientSocket(unsigned char a_valid_key, int a_connect_notify_id = 26001, int a_data_notify_id = 26002);
-	// a_connect_notify_id : FD_CONNECT (접속 결과) 발생시 윈도우에 전달할 메시지 ID
-	// a_data_notify_id    : FD_READ, RE_CLOSE 발생시 윈도우에 전달할 메시지 ID
-
+	ClientSocket(unsigned char a_valid_key, int a_connect_notify_id, int a_data_notify_id);
 	virtual ~ClientSocket();
 
 
