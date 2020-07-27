@@ -136,6 +136,8 @@ Socket::~Socket()
 // 데이터 전송 함수 (전달된 정보를 가지고 mp_send_data 메모리에 약속된 Head 정보를 구성해서 전송)
 int Socket::SendFrameData(SOCKET ah_socket, unsigned char a_message_id, const char* ap_body_data, BS a_body_size)
 {
+	OutputDebugString(L"Socket::SendFrameData()\n");
+	
 	// 메시지 ID를 두 번째 바이트에 저장 (첫 번째 바이트에는 구분값이 이미 들어있다 - 객체 생성자)
 	*(unsigned char*)(mp_send_data + 1) = a_message_id;
 
@@ -158,6 +160,8 @@ int Socket::SendFrameData(SOCKET ah_socket, unsigned char a_message_id, const ch
 // 안정적인 데이터 수신 (재시도 수신)
 int Socket::ReceiveData(SOCKET ah_socket, BS a_body_size)
 {
+	OutputDebugString(L"Socket::ReceiveData()\n");
+
 	// 수신되는 데이터가 크거나 네트워크 상태가 좋지 못하면 데이터가 여러 번에 걸쳐 나누어져 수신될 수 있다
 	// 정확한 수신을 위해 재시도 읽기를 해야 함 (반복문)
 	
@@ -198,6 +202,8 @@ int Socket::ReceiveData(SOCKET ah_socket, BS a_body_size)
 // 데이터가 수신되었을 때 수신된 데이터를 처리하는 함수
 void Socket::ProcessRecvEvent(SOCKET ah_socket)
 {
+	OutputDebugString(L"Socket::ProcessRecvEvent()\n");
+	
 	// 수신된 데이터를 'Head'와 'Body'로 분리하고 'Head'정보를 분석해서 'MessageID'에 따른 작업을 할 수 있도록 ProcessRecvData 함수를 호출
 	// 수신하는 과정에서 끊어 읽기, 재시도 읽기에 의해 FD_READ 이벤트가 과도하게 발생할 수 있으므로
 	// 비동기 처리 (WSAASyncSelect)를 이용해 FD_READ 이벤트가 추가로 발생하지 않도록 설정
@@ -216,6 +222,8 @@ void Socket::ProcessRecvEvent(SOCKET ah_socket)
 	// 사용자가 지정한 구분 값과 일치하는지 체크
 	if (key == m_valid_key)
 	{
+		OutputDebugString(L"key == m_valid_key\n");
+
 		recv(ah_socket, (char*)&msg_id, 1, 0); // Message ID 수신 (1byte)
 		recv(ah_socket, (char*)&body_size, sizeof(BS), 0); // Body size 수신 (2byte)
 
@@ -241,6 +249,7 @@ void Socket::ProcessRecvEvent(SOCKET ah_socket)
 	}
 	else // 구분값이 잘못된 경우, 접속 해체
 	{
+		OutputDebugString(L"key == m_valid_key\n");
 		DisconnectSocket(ah_socket, -1);
 	}
 
@@ -324,6 +333,8 @@ void UserData::CloseSocket(int a_linger_flag)
 ServerSocket::ServerSocket(unsigned char a_valid_key, unsigned short a_max_user_count, UserData* ap_user_data,
 	int a_accept_notify_id, int a_data_notify_id) : Socket(a_valid_key, a_data_notify_id)
 {
+	OutputDebugString(L"ServerSocket()\n");
+	
 	m_max_user_count = a_max_user_count; // 서버에 접속할 최대 사용자 수
 	mh_listen_socket = INVALID_SOCKET; // Listen 작업용 소켓 초기화
 
@@ -348,6 +359,8 @@ ServerSocket::ServerSocket(unsigned char a_valid_key, unsigned short a_max_user_
 
 ServerSocket::~ServerSocket()
 {
+	OutputDebugString(L"~ServerSocket()\n");
+	
 	// listen 소켓이 생성되어 있다면 제거
 	if (mh_listen_socket != INVALID_SOCKET) closesocket(mh_listen_socket);
 
@@ -364,6 +377,8 @@ ServerSocket::~ServerSocket()
 // StartServer 함수를 사용하면 클라이언트가 접속할 수 있는 상태가 된다
 int ServerSocket::StartServer(const wchar_t* ap_ip_address, int a_port, HWND ah_notify_wnd)
 {
+	OutputDebugString(L"ServerSocket::StartServer()\n");
+	
 	// 비동기 형식의 소켓에 이벤트(FD_ACCEPT, FD_READ, FD_CLOSE)가 발생했을 때 전달되는 메시지를 수신할 윈도우의 핸들을 저장
 	mh_notify_wnd = ah_notify_wnd;
 
@@ -421,6 +436,9 @@ int ServerSocket::StartServer(const wchar_t* ap_ip_address, int a_port, HWND ah_
 // -> 윈도우에 메시지 전달 -> 전달된 메시지 처리 (ProcessToAccept)
 int ServerSocket::ProcessToAccept(WPARAM wParam, LPARAM lParam)
 {
+	OutputDebugString(L"ServerSocket::ProcessToAccept()\n");
+	
+	
 	// wParam: 메시지가 발생하게된 소켓의 핸들 (mh_listen_socket)
 	// lParam: 소켓에 에러가 있는지(WSAGETSELECTERROR) or 어떤 이벤트 때문에 발생했는지(WSAGETSELECTEVENT)
 
@@ -483,6 +501,8 @@ int ServerSocket::ProcessToAccept(WPARAM wParam, LPARAM lParam)
 // 클라이언트의 네트워크 이벤트 처리 (FD_READ, FD_CLOSE 처리 함수)
 void ServerSocket::ProcessClientEvent(WPARAM wParam, LPARAM lParam)
 {	
+	OutputDebugString(L"ServerSocket::ProcessClientEvent()\n");
+	
 	// 데이터 수신(FD_READ) 시에는 정해진 프로토콜 규약대로 읽어서 분석 후 처리하는 ProcessRecvEvent 함수 호출
 	// 접속을 해제할 때 wParam에 저장된 소켓 핸들 값을 사용하여 어떤 사용자인지 찾는다
 	// 그리고 접속을 해제할 때 필요한 작업을 하기 위해 AddWorkForCloseUser 함수 호출
@@ -508,6 +528,8 @@ void ServerSocket::ProcessClientEvent(WPARAM wParam, LPARAM lParam)
 // 정상적인 프로토콜을 사용하는 클라이언트이지만 접속을 강제로 종료시켜야 하는 경우 (ex. 로그인 암호를 계속 틀리면)
 void ServerSocket::DisconnectSocket(SOCKET ah_socket, int a_error_code)
 {
+	OutputDebugString(L"ServerSocket::DisconnectSocket()\n");
+	
 	UserData* p_user_data = FindUserData(ah_socket); // 소켓 핸들을 사용하여 사용자 정보를 찾는다
 
 	AddWorkForCloseUser(p_user_data, a_error_code); // 접속을 해제하기 전에 작업해야 할 내용 처리 (상속받은 클래스에서 재정의)
@@ -521,6 +543,8 @@ void ServerSocket::DisconnectSocket(SOCKET ah_socket, int a_error_code)
 // ServerSocket::ProcessClientEvent 호출 -> Socket::ProcessRecvEvent 호출 -> ServerSocket::ProcessRecvData 호출
 int ServerSocket::ProcessRecvData(SOCKET ah_socket, unsigned char a_msg_id, char* ap_recv_data, BS a_body_size)
 {
+	OutputDebugString(L"ServerSocket::ProcessRecvData()\n");
+	
 	UserData* p_user_data = FindUserData(ah_socket); // 소켓 핸들값을 사용하여 이 소켓을 사용하는 사용자를 찾는다
 
 	if (a_msg_id == 251) // 예약 메시지 251 : 클라이언트에 큰용량의 데이터를 전송하기 위해 사용 (message_id)
@@ -594,6 +618,8 @@ int ServerSocket::ProcessRecvData(SOCKET ah_socket, unsigned char a_msg_id, char
 ClientSocket::ClientSocket(unsigned char a_valid_key, int a_connect_notify_id, int a_data_notify_id)
 	:Socket(a_valid_key, a_data_notify_id)
 {
+	OutputDebugString(L"ClientSocket()\n");
+	
 	m_connect_flag = 0; // 접속 상태를 '접속 안됨'으로 초기화 한다
 	mh_socket = INVALID_SOCKET; // 소켓 핸들을 초기화 한다
 	m_connect_notify_id = a_connect_notify_id; // FD_CONNECT 이벤트 발생시에 사용할 윈도우 메시지 번호 초기화
@@ -601,6 +627,8 @@ ClientSocket::ClientSocket(unsigned char a_valid_key, int a_connect_notify_id, i
 
 ClientSocket::~ClientSocket()
 {
+	OutputDebugString(L"~ClientSocket()\n");
+	
 	if (mh_socket != INVALID_SOCKET) // 서버와 통신하기 위한 소켓이 생성되어 있다면 소켓을 제거한다
 		closesocket(mh_socket);
 }
@@ -611,6 +639,8 @@ ClientSocket::~ClientSocket()
 // '접속 결과를 윈도우 메시지로 전달 받기 위한 윈도우 핸들' 도 같이 매개변수로 넘겨받아야 한다 
 int ClientSocket::ConnectToServer(const wchar_t* ap_ip_address, int a_port_num, HWND ah_notify_wnd)
 {
+	OutputDebugString(L"ClientSocket::ConnectToServer()\n");
+	
 	// 접속을 시도중이거나 접속된 상태라면 접속을 시도하지 않는다
 	if (m_connect_flag != 0) return 0; // 중복 시도 또는 중복 접속 오류!!
 
@@ -647,6 +677,8 @@ int ClientSocket::ConnectToServer(const wchar_t* ap_ip_address, int a_port_num, 
 // 서버에 접속을 실패하면 생성한 소켓을 제거하고 해당 변수 초기화
 int ClientSocket::ResultOfConnection(LPARAM lParam)
 {
+	OutputDebugString(L"ClientSocket::ResultOfConnection()\n");
+	
 	// lParam: 소켓에 에러가 있는지(WSAGETSELECTERROR) or 어떤 이벤트 때문에 발생했는지(WSAGETSELECTEVENT)
 
 	if (WSAGETSELECTERROR(lParam) == 0) // 접속 에러가 없음 (서버에 정공적으로 접속)
@@ -675,6 +707,8 @@ int ClientSocket::ResultOfConnection(LPARAM lParam)
 // 접속이 해제되어 FD_CLOSE 이벤트가 발생하면 소켓을 제거하고 핸들을 저장했던 변수를 초기화
 int ClientSocket::ProcessServerEvent(WPARAM wParam, LPARAM lParam)
 {
+	OutputDebugString(L"ClientSocket::ProcessServerEvent()\n");
+	
 	// 접속이 해제 되었을 때, 추가적인 메시지를 사용하지 않고 이 함수의 반환값으로 구별해서 사용할 수 있도록
 	// FD_READ는 1, FD_CLOSE는 0값을 반환하도록 구현
 	int state;
@@ -701,6 +735,8 @@ int ClientSocket::ProcessServerEvent(WPARAM wParam, LPARAM lParam)
 // 서버와의 접속 해제를 즉시 수행하기 위해, 내부적으로 링거옵션을 설정하여 서버로부터 데이터가 수신되는 중이라도 기다리지 않고 소켓을 제거
 void ClientSocket::DisconnectSocket(SOCKET ah_socket, int a_error_code)
 {
+	OutputDebugString(L"ClientSocket::DisconnectSocket()\n");
+	
 	m_connect_flag = 0; // 접속 상태를 '접속 해제'로 변경
 
 	LINGER temp_linger = { TRUE, 0 }; // 데이터가 송수신되는 것과 상관없이 소켓을 바로 닫겠다
@@ -717,6 +753,8 @@ void ClientSocket::DisconnectSocket(SOCKET ah_socket, int a_error_code)
 // 내부적으로 mh_socket을 사용하여 Socket 클래스의 SendFrameData 함수를 다시 호출
 int ClientSocket::SendFrameData(unsigned char a_message_id, const char* ap_body_data, BS a_body_size)
 {
+	OutputDebugString(L"ClientSocket::SendFrameData()\n");
+	
 	return Socket::SendFrameData(mh_socket, a_message_id, ap_body_data, a_body_size);
 }
 
@@ -725,6 +763,8 @@ int ClientSocket::SendFrameData(unsigned char a_message_id, const char* ap_body_
 // 접속된 서버에서 데이터가 전송되면 FD_READ 이벤트가 발생하여 ProcessServerEvent 함수가 호출되고 ProcessRecvData 함수가 호출된다
 int ClientSocket::ProcessRecvData(SOCKET ah_socket, unsigned char a_msg_id, char* ap_recv_data, BS a_body_size)
 {
+	OutputDebugString(L"ClientSocket::ProcessRecvData()\n");
+	
 	if (a_msg_id == 251) // 예약 메시지 251 : 서버에 큰용량의 데이터를 전송하기 위해 사용 (message_id)
 	{
 		char* p_send_data; // 데이터 전송을 위해 사용할 메모리

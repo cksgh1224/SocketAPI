@@ -18,6 +18,8 @@
 #define _CRT_SECURE_NO_WARNINGS
 #include <WinSock2.h>
 
+// 디버그 출력
+// OutputDebugString(L"ddd");
 
 // 소켓으로 데이터를 주고받을때 큰용량의 데이터를 한 번에 전송하면 전송 부하만 심해질 뿐 전송이 제대로 되지 않기 때문에
 // 데이터를 나누어서 전송하고 수신하는 측에서 데이터를 다시 합쳐서 사용한다 (Socket class)
@@ -349,5 +351,38 @@ public:
 	inline SOCKET GetHandle() { return mh_socket; } // 서버와 통신하기 위해 생성한 소켓의 핸들 값을 알고 싶을 때 사용
 };
 
+
+
+
+
+
+/*
+	문자열의 인코딩 형식을 변환하는 함수
+	AAA to BBB 형식. AAA 형식의 문자열을 BBB 형식으로 문자열로 변환
+	ap_src_string에 저장된 문자열이 ap_dest_string 으로 변환되어 저장되는 형식
+	ap_dest_string이 1차원 포인터인 경우에는 함수를 호출하는 쪽에서 메모리를 할당해서 넘길때 사용하고
+	ap_dest_string이 2차원 포인터인 경우에는 함수 내부에서 메모리를 할당하고 문자열을 변환. 
+	따라서 함수를 호출한 쪽에서 반드시 메모리를 해제해야 합니다.
+
+	[ char *ap_dest_string 사용 예시 ]
+	char temp[256];
+	int length = TWAPI_UnicodeToAscii(temp, L"팁스소프트");
+
+	[ char **ap_dest_string 사용 예시 ]
+	char *p_temp;
+	int length = TWAPI_UnicodeToAscii(&p_temp, L"팁스소프트");
+	delete[] p_temp;
+
+	함수의 반환 값은 변환된 문자열의 길이인데 '\0'까지 포함된 길이. "abc"이면 4가 반환됩니다.
+
+	int TWAPI_UnicodeToAscii(char* ap_dest_string, wchar_t* ap_src_string);
+	int TWAPI_UnicodeToAscii(char** ap_dest_string, wchar_t* ap_src_string);
+	int TWAPI_AsciiToUnicode(wchar_t* ap_dest_string, char* ap_src_string);
+	int TWAPI_AsciiToUnicode(wchar_t** ap_dest_string, char* ap_src_string);
+	int TWAPI_UnicodeToUTF8(char* ap_dest_string, wchar_t* ap_src_string);
+	int TWAPI_UnicodeToUTF8(char** ap_dest_string, wchar_t* ap_src_string);
+	int TWAPI_UTF8ToUnicode(wchar_t* ap_dest_string, char* ap_src_string);
+	int TWAPI_UTF8ToUnicode(wchar_t** ap_dest_string, char* ap_src_string);
+*/
 
 #endif
