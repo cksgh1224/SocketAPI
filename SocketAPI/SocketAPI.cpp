@@ -7,6 +7,11 @@
 #include "SocketAPI.h"
 
 
+// 디버그 출력
+//OutputDebugString(L"ddd");
+
+
+
 // ExchangeManager 클래스 메서드들
 
 // 멤버 변수 초기화
@@ -26,6 +31,8 @@ ExchangeManager::~ExchangeManager()
 // 전송, 수신에 사용할 메모리 할당 (a_data_size에 할당할 크기를 명시하면 할당된 메모리 주소 반환)
 char* ExchangeManager::MemoryAlloc(int a_data_size)
 {
+	TR("ExchangeManager::MemoryAlloc - 전송, 수신에 사용할 메모리 할당\n");
+
 	// 기존에 사용하던 메모리(m_total_size)와 현재 필요한 메모리 크기(a_data_size)가 동일하면 다시 메모리를 할당할 필요가 없다
 	if (m_total_size != a_data_size)
 	{
@@ -35,13 +42,15 @@ char* ExchangeManager::MemoryAlloc(int a_data_size)
 	}
 
 	m_current_size = 0; // 작업 위치를 가장 첫 위치로 초기화
-
+	
 	return mp_data; // 할당된 메모리의 시작 위치 반환
 }
 
 // 전송, 수신에 사용된 메모리 제거
 void ExchangeManager::DeleteData()
 {	
+	TR("ExchangeManager::DeleteData - 전송, 수신에 사용된 메모리 제거\n");
+
 	if (mp_data != nullptr) // 할당된 메모리 제거, 작업과 관련된 변수들 초기화
 	{
 		delete[] mp_data;
@@ -59,6 +68,8 @@ void ExchangeManager::DeleteData()
 // 전송할 위치와 크기 계산 (전송 시작 위치 변경) (큰 크기의 데이터를 나눌때 사용)
 int SendManager::GetPosition(char** ap_data, int a_data_size) // a_data_size : default 2048
 {
+	TR("SendManager::GetPosition - 전송할 위치와 크기 계산 (큰 크기의 데이터를 나눌때 사용)\n");
+	
 	// 전송할 데이터를 하나의 메모리로 관리하고 메모리 시작 위치부터 2048byte (a_data_size) 단위로 데이터를 전송
 	// 변경된 시작 위치는 ap_data에 넣는다, 실제 전송해야할 데이터 크기를 함수 반환값으로 알려준다
 	// ex) 전송할 데이터의 전체 크기가 2050이면 GetPosition 함수를 처음 사용했을 때는 2048반환, 두 번째 호출때는 2반환
@@ -69,7 +80,7 @@ int SendManager::GetPosition(char** ap_data, int a_data_size) // a_data_size : d
 	// 전송 크기를 계산하기 위해 2048byte(a_data_size)를 더한 크기가 최대 크기보다 작은지 체크
 	if (m_current_size + a_data_size < m_total_size)
 	{	
-		// 최대 크기보다 작은 경우 2048byte 만큼 전송하면 된다
+		// 최대 크기보다 작은 경우 2048byte (a_data_size) 만큼 전송하면 된다
 		m_current_size += a_data_size; // 다음 위치를 계산할 수 있도록 전송한 총 크기를 구한다
 	}
 	else
@@ -91,11 +102,12 @@ int SendManager::GetPosition(char** ap_data, int a_data_size) // a_data_size : d
 // 수신된 데이터를 기존에 수신된 데이터에 추가
 int RecvManager::AddData(char* ap_data, int a_size)
 {	
+	TR("RecvManager::AddData - 수신된 데이터를 기존에 수신된 데이터에 추가\n");
+
 	// m_current_size: 일정 크기의 데이터가 수신될 때마다 저장할 위치를 계산하기 위해 현재 수신된 데이터의 총 크기를 기억할 변수
-	
-	memcpy(mp_data + m_current_size, ap_data, a_size); // 기존 수신 데이터(mp_data + m_current_size)위치에 수신된 데이터(ap_data) 를 복사 (a_size만큼)
+	memcpy(mp_data + m_current_size, ap_data, a_size); // 기존 수신 데이터(mp_data + m_current_size)위치에 새로 수신된 데이터(ap_data) 를 복사 (a_size만큼)
 	m_current_size += a_size; // 총 수신 크기 계산
-	return m_current_size; // 현재 수신된 데이터의 크기를 반환
+	return m_current_size;    // 현재 수신된 데이터의 크기를 반환
 }
 
 
@@ -107,16 +119,18 @@ int RecvManager::AddData(char* ap_data, int a_size)
 // 객체 생성시에 프로토콜 구분 값과 데이터 수신 및 연결 해제에 사용할 메시지 ID 지정
 Socket::Socket(unsigned char a_valid_key, int a_data_notify_id)
 {
-	m_valid_key = a_valid_key; // 사용자가 지정한 프로토콜 구분 값 저장
-	mp_send_data = new char[8192]; // 전송용으로 사용할 메모리 할당 (8kbyte)
-	*(unsigned char*)mp_send_data = a_valid_key; // 전송할 메모리의 선두 1바이트에 구분값을 넣는다
-
-	mp_recv_data = new char[8192]; // 수신용으로 사용할 메모리 할당 (8kbyte)
+	TR("Socket::Socket\n");
 	
-	mh_notify_wnd = nullptr; // 데이터 수신 및 연결 해제 메시지를 받을 윈도우 핸들 값 초기화
-	m_data_notify_id = a_data_notify_id; // 데이터 수신 및 연결 해제 메시지 ID로 사용할 값 (FD_READ, FD_CLOSE)
+	m_valid_key = a_valid_key;                   // 사용자가 지정한 프로토콜 구분 값 저장
+	mp_send_data = new char[8192];               // 전송용으로 사용할 메모리 할당 (8kbyte)
+	mp_recv_data = new char[8192];               // 수신용으로 사용할 메모리 할당 (8kbyte)
 
-	// 소켓 시스템을 사용하도록 설정
+	*(unsigned char*)mp_send_data = a_valid_key; // 전송할 메모리의 선두 1바이트에 구분값을 넣는다	
+
+	mh_notify_wnd = nullptr;                     // 데이터 수신 및 연결 해제 메시지를 받을 윈도우 핸들 값 초기화
+	m_data_notify_id = a_data_notify_id;         // 데이터 수신 및 연결 해제 메시지 ID로 사용할 값 (FD_READ, FD_CLOSE)
+
+	// 소켓 시스템을 사용하도록 설정 
 	WSADATA temp;
 	WSAStartup(0x0202, &temp);
 }
@@ -124,6 +138,8 @@ Socket::Socket(unsigned char a_valid_key, int a_data_notify_id)
 
 Socket::~Socket()
 {
+	TR("Socket::~Socket\n");
+
 	// 전송과 수신에 사용하던 메모리 제거
 	delete[] mp_send_data;
 	delete[] mp_recv_data;
@@ -136,40 +152,47 @@ Socket::~Socket()
 // 데이터 전송 함수 (전달된 정보를 가지고 mp_send_data 메모리에 약속된 Head 정보를 구성해서 전송)
 int Socket::SendFrameData(SOCKET ah_socket, unsigned char a_message_id, const char* ap_body_data, BS a_body_size)
 {
-	OutputDebugString(L"Socket::SendFrameData()\n");
+	TR("Socket::SendFrameData - 데이터 전송 함수 (전달된 정보를 가지고 mp_send_data 메모리에 약속된 Head 정보를 구성해서 전송)\n");
 	
-	// 메시지 ID를 두 번째 바이트에 저장 (첫 번째 바이트에는 구분값이 이미 들어있다 - 객체 생성자)
+	// 메시지 ID를 두 번째 바이트에 저장 (첫 번째 바이트에는 구분값이 이미 들어있다 -> 객체 생성자)
 	*(unsigned char*)(mp_send_data + 1) = a_message_id;
-
-	// 세번째와 네번째 바이트에 'Body'데이터의 크기 저장 (현재 2byte 크기) 
+	
+	// 세번째와 네번째 바이트에(2byte) 'Body'데이터의 크기 저장 
 	*(BS*)(mp_send_data + 2) = a_body_size;
 
-	// 다섯번째 위치에 (현재 HEAD_SIZE는 4byte) 'Body'를 구성하는 데이터 복사 
+	// 다섯번째 위치에 (HEAD_SIZE 4byte 다음 위치) 'Body'를 구성하는 데이터 복사 
 	memcpy(mp_send_data + HEAD_SIZE, ap_body_data, a_body_size);
-
+	
 	// 소켓으로 데이터 전송. 전송 총량은 Head + Body
 	// send() 함수의 반환 값 : 전송된 총 바이트수
 	// (ah_socket) 소켓으로 (mp_send_data) 데이터를 (HEAD_SIZE + a_body_size) 크기만큼 보내겠다
 	if (send(ah_socket, mp_send_data, HEAD_SIZE + a_body_size, 0) == HEAD_SIZE + a_body_size)
+	{
+		TR("Socket::SendFrameData 전송 성공\n");
 		return 1; // 전송 성공
+	}
+	else
+	{
+		TR("Socket::SendFrameData 전송 실패\n");
+		return 0; // 전송 실패	
+	}
 
-	return 0; // 전송 실패	
 }
 
 
 // 안정적인 데이터 수신 (재시도 수신)
 int Socket::ReceiveData(SOCKET ah_socket, BS a_body_size)
 {
-	OutputDebugString(L"Socket::ReceiveData()\n");
+	TR("Socket::ReceiveData - 안정적인 데이터 수신 (재시도 수신)\n");
 
 	// 수신되는 데이터가 크거나 네트워크 상태가 좋지 못하면 데이터가 여러 번에 걸쳐 나누어져 수신될 수 있다
-	// 정확한 수신을 위해 재시도 읽기를 해야 함 (반복문)
+	// 정확한 수신을 위해 재시도 읽기를 해야 함 (반복문 사용)
 	
 	BS total_size = 0; // 총 읽은 데이터
-	int retry = 0; // 재시도 횟수
-	int read_size; // recv 함수의 반환값 저장 (recv: 실제로 읽은 데이터의 크기 값을 반환)
+	int retry = 0;     // 재시도 횟수
+	int read_size;     // recv 함수의 반환값 (recv: 실제로 읽은 데이터의 크기 값을 반환)
 
-	// a_body_size에 지정한 크기만큼 한번에 수신하지 못 할 수 있으므로 반복문을 이용해 여러번 재시도하며 읽는다
+	// a_body_size에 지정한 크기만큼 (전송된 데이터 크기만큼) 한번에 수신하지 못 할 수 있으므로 반복문을 이용해 여러번 재시도하며 읽는다
 	while (total_size < a_body_size)
 	{
 		// 실제로 읽은 크기를 제외한 나머지 크기를 계속 반복해서 읽는다 (데이터를 읽을 위치를 읽은 크기만큼 이동하며)
@@ -187,22 +210,33 @@ int Socket::ReceiveData(SOCKET ah_socket, BS a_body_size)
 		{
 			// 실제로 수신된 크기를 total_size에 합산
 			if (read_size > 0) total_size += (BS)read_size;
-
-			// 총 수신된 크기가 a_body_size보다 작으면 수신 상태가 좋지 않다는 뜻, 약간의 지연을 주면서 다시 읽기를 시도
+			
+			// 총 수신된 크기가 a_body_size보다 작으면 (데이터를 한번에 읽지 못했으면) 수신 상태가 좋지 않다는 뜻, 약간의 지연을 주면서 다시 읽기를 시도
 			if (total_size < a_body_size) Sleep(5);
 
 			retry = 0; // 재시도 횟수 초기화
 		}
 	}
 
-	return retry <= 10; // 0이면 수신 실패, 1이면 수신 성공
+	if (retry <= 10)
+	{
+		TR("Socket::ReceiveData 데이터 수신 성공\n");
+		return 1; // 수신 성공
+	}
+	else
+	{
+		TR("Socket::ReceiveData 데이터 수신 실패\n");
+		return 0; // 수신 실패
+	}
+
+	//return retry <= 10; // 0이면 수신 실패, 1이면 수신 성공
 }
 
 
 // 데이터가 수신되었을 때 수신된 데이터를 처리하는 함수
 void Socket::ProcessRecvEvent(SOCKET ah_socket)
 {
-	OutputDebugString(L"Socket::ProcessRecvEvent()\n");
+	TR("Socket::ProcessRecvEvent - 데이터가 수신되었을 때 수신된 데이터를 처리하는 함수\n");
 	
 	// 수신된 데이터를 'Head'와 'Body'로 분리하고 'Head'정보를 분석해서 'MessageID'에 따른 작업을 할 수 있도록 ProcessRecvData 함수를 호출
 	// 수신하는 과정에서 끊어 읽기, 재시도 읽기에 의해 FD_READ 이벤트가 과도하게 발생할 수 있으므로
@@ -216,16 +250,16 @@ void Socket::ProcessRecvEvent(SOCKET ah_socket)
 	// 이 소켓(ah_socket)에 FD_CLOSE가 발생하면 이 윈도우(mh_notify_wnd)에게 m_data_notify_id 메시지를 준다
 	WSAAsyncSelect(ah_socket, mh_notify_wnd, m_data_notify_id, FD_CLOSE); // WSAAsyncSelect : 특정 소켓에 비동기를 건다
 
-	unsigned char key = 0; // key: 구분값. 이 프로토콜이 정상적인 프로토콜인지 체크 (1byte)
+	unsigned char key = 0;              // key: 구분값. 이 프로토콜이 정상적인 프로토콜인지 체크 (1byte)
 	recv(ah_socket, (char*)&key, 1, 0); // 구분값 수신 (ah_socket으로부터 1바이트의 데이터를 key에다가 가져옴)
-
+	
 	// 사용자가 지정한 구분 값과 일치하는지 체크
 	if (key == m_valid_key)
 	{
-		OutputDebugString(L"key == m_valid_key\n");
+		TR("정상적인 프로토콜 (key == m_valid_key)\n");
 
-		recv(ah_socket, (char*)&msg_id, 1, 0); // Message ID 수신 (1byte)
-		recv(ah_socket, (char*)&body_size, sizeof(BS), 0); // Body size 수신 (2byte)
+		recv(ah_socket, (char*)&msg_id, 1, 0);             // Message ID 수신 (1byte)
+		recv(ah_socket, (char*)&body_size, sizeof(BS), 0); // Body size 수신  (2byte)
 
 		if (body_size > 0)
 		{
@@ -233,11 +267,12 @@ void Socket::ProcessRecvEvent(SOCKET ah_socket)
 			if (!ReceiveData(ah_socket, body_size)) // ReceiveData : 데이터 수신 실패하면 0반환
 			{
 				// 데이터를 수신하다 오류가 발생한 경우 연결된 소켓을 해제
+				// DisconnectSocket 함수는 상속받은 자식 클래스에서 오버라이딩 으로 재정의하여 자신들이 원하는 작업을 추가할 함수
 				DisconnectSocket(ah_socket, -2);
 				return;
 			}
 		}
-
+		
 		// 정상적으로 'Head'와 'Body'를 수신한 경우 이 정보들을 사용하여 사용자가 원하는 작업을 처리
 		// ProcessRecvData 함수는 상속받은 자식 클래스에서 오버라이딩 으로 재정의하여 자신들이 원하는 작업을 추가할 함수
 		if (ProcessRecvData(ah_socket, msg_id, mp_recv_data, body_size) == 1)
@@ -249,7 +284,7 @@ void Socket::ProcessRecvEvent(SOCKET ah_socket)
 	}
 	else // 구분값이 잘못된 경우, 접속 해체
 	{
-		OutputDebugString(L"key == m_valid_key\n");
+		TR("잘못된 프로토콜 (key != m_valid_key)\n");
 		DisconnectSocket(ah_socket, -1);
 	}
 
@@ -259,6 +294,8 @@ void Socket::ProcessRecvEvent(SOCKET ah_socket)
 // ASCII 형식의 문자열을 유니코드로 변환
 void Socket::AsciiToUnicode(wchar_t* ap_dest_ip, char* ap_src_ip)
 {
+	TR("Socket::AsciiToUnicode - ASCII 형식의 문자열을 유니코드로 변환\n");
+	
 	int ip_length = strlen(ap_src_ip) + 1;
 	memset(ap_dest_ip, 0, ip_length << 1);
 
@@ -270,6 +307,8 @@ void Socket::AsciiToUnicode(wchar_t* ap_dest_ip, char* ap_src_ip)
 // 유니코드 형식의 문자열을 ASCII로 변환
 void Socket::UnicodeToAscii(char* ap_dest_ip, wchar_t* ap_src_ip)
 {
+	TR("Socket::UnicodeToAscii - 유니코드 형식의 문자열을 ASCII로 변환\n");
+
 	int ip_length = wcslen(ap_src_ip) + 1; // wcslen : strlen 의 유니코드 버전
 		
 	// 2바이트 형식으로 되어 있는 문자열을 1바이트 형식으로 변경
@@ -286,6 +325,8 @@ void Socket::UnicodeToAscii(char* ap_dest_ip, wchar_t* ap_src_ip)
 // 멤버변수 초기화, 전송과 수신에 사용할 객체 생성
 UserData::UserData()
 {
+	TR("UserData::UserData\n");
+	
 	mh_socket = INVALID_SOCKET; // 소켓 핸들 초기화
 	m_ip_address[0] = 0; // 주소 값 초기화
 	mp_send_man = new SendManager(); // 전송용 객체 생성
@@ -296,7 +337,9 @@ UserData::UserData()
 // 사용하던 소켓 제거, 전송과 수신에 사용한 객체 제거
 // 파괴자 : 가상으로 선언
 UserData::~UserData()
-{
+{	
+	TR("UserData::~UserData\n");
+
 	// 소켓이 생성되어 있다면 소켓을 제거
 	if (mh_socket != INVALID_SOCKET) closesocket(mh_socket);
 
@@ -306,15 +349,17 @@ UserData::~UserData()
 }
 
 
-// 연결된 소켓을 닫고 초기화
+// 연결된 소켓을 닫고 초기화 (a_linger_flag가 0이 아니면 소켓을 즉시 닫는다)
+// 제거하고자 하는 소켓으로 데이터가 수신 중이면 수신이 완료될때 까지 제거를 못하기 때문에 소켓을 즉시 닫고 싶으면 링거 옵션 사용
 void UserData::CloseSocket(int a_linger_flag)
 {
-	// 제거하고자 하는 소켓으로 데이터가 수신 중이면 수신이 완료될때 까지 제거를 못하기 때문에 소켓을 즉시 닫고 싶으면 링거 옵션 사용
+	TR("UserData::CloseSocket - 연결된 소켓을 닫고 초기화\n");
 
 	if (mh_socket != INVALID_SOCKET) // 소켓이 생성되어 있다면
 	{
 		if (a_linger_flag)
 		{
+			TR("Linger... 소켓을 즉시 닫는다\n");
 			LINGER temp_linger = { TRUE, 0 }; // 데이터가 송수신되는 것과 상관없이 소켓을 바로 닫겠다
 			setsockopt(mh_socket, SOL_SOCKET, SO_LINGER, (char*)&temp_linger, sizeof(temp_linger)); // mh_socket소켓의 LINGER 옵션 변경
 		}
@@ -330,26 +375,28 @@ void UserData::CloseSocket(int a_linger_flag)
 
 // ServerSocket 클래스 메서드들
 
+
+// a_valid_key: 프로토콜 구분값, a_max_user_count: 서버가 관리할 최대 사용자 수, ap_user_data: 데이터 객체(UserData 객체 or UserAccount 객체)
+// a_accept_notify_id: FD_ACCEPT 발생시 윈도우에 전달할 메시지 ID, a_data_notify_id: FD_READ, FD_CLOSE 발생시 윈도우에 전달할 메시지 ID
 ServerSocket::ServerSocket(unsigned char a_valid_key, unsigned short a_max_user_count, UserData* ap_user_data,
 	int a_accept_notify_id, int a_data_notify_id) : Socket(a_valid_key, a_data_notify_id)
 {
-	OutputDebugString(L"ServerSocket()\n");
+	TR("ServerSocket::ServerSocket\n");
 	
-	m_max_user_count = a_max_user_count; // 서버에 접속할 최대 사용자 수
-	mh_listen_socket = INVALID_SOCKET; // Listen 작업용 소켓 초기화
+	m_max_user_count = a_max_user_count;     // 서버에 접속할 최대 사용자 수
+	m_accept_notify_id = a_accept_notify_id; // 새로운 사용자가 접속했을 때 발생할 메시지 ID를 저장 (FD_ACCEPT)
+	mh_listen_socket = INVALID_SOCKET;       // Listen 작업용 소켓 초기화
 
-	// 최대 사용자 수만큼 사용자 정보를 저장할 객체를 관리할 포인터 생성
+	// 최대 사용자 수만큼 사용자 정보를 저장할 객체를 관리할 포인터 생성 (UserData** mp_user_list)
 	mp_user_list = new UserData * [m_max_user_count]; // UserData 객체 또는 UserAccount 객체를 담을수 있다 (다형성)
 
 	// 최대 사용자 수만큼 사용자 정보를 저장할 객체를 개별적으로 생성
 	for (int i = 0; i < m_max_user_count; i++)
 	{
 		// 다형성 사용시에 특정 클래스 형식에 종속되지 않도록 멤버함수를 사용해서 객체를 생성
-		// CreateObject 함수는 매개변수로 전달된 ap_user_data와 동일한 객체를 생성한다 (UserData or UserAccount)
+		// CreateObject 함수는 매개변수로 전달된 ap_user_data와 동일한 객체를 생성한다 (UserData 객체 or UserAccount 객체)
 		mp_user_list[i] = ap_user_data->CreateObject();
 	}
-
-	m_accept_notify_id = a_accept_notify_id; // 새로운 사용자가 접속했을 때 발생할 메시지 ID를 저장 (FD_ACCEPT)
 
 	// 사용자 정보를 생성하기 위해 매개변수로 전달받은 객체를 제거한다
 	// 이미 동일한 형식의 객체가 mp_user_list에 할당되어 있기 때문에 보관할 필요가 없다
@@ -359,7 +406,7 @@ ServerSocket::ServerSocket(unsigned char a_valid_key, unsigned short a_max_user_
 
 ServerSocket::~ServerSocket()
 {
-	OutputDebugString(L"~ServerSocket()\n");
+	TR("ServerSocket::~ServerSocket\n");
 	
 	// listen 소켓이 생성되어 있다면 제거
 	if (mh_listen_socket != INVALID_SOCKET) closesocket(mh_listen_socket);
@@ -373,11 +420,12 @@ ServerSocket::~ServerSocket()
 }
 
 
-// 서버 서비스의 시작 (listen 작업을 수행할 함수) (socket - bind - listen)
+// 서버 서비스의 시작 (listen 작업 수행) (socket - bind - listen)
 // StartServer 함수를 사용하면 클라이언트가 접속할 수 있는 상태가 된다
+// return -> mh_listen_socket 생성 실패: -1, bind 실패: -2, 성공: 1
 int ServerSocket::StartServer(const wchar_t* ap_ip_address, int a_port, HWND ah_notify_wnd)
 {
-	OutputDebugString(L"ServerSocket::StartServer()\n");
+	TR("ServerSocket::StartServer - 서버 서비스의 시작 (socket - bind - listen)\n");
 	
 	// 비동기 형식의 소켓에 이벤트(FD_ACCEPT, FD_READ, FD_CLOSE)가 발생했을 때 전달되는 메시지를 수신할 윈도우의 핸들을 저장
 	mh_notify_wnd = ah_notify_wnd;
@@ -386,7 +434,11 @@ int ServerSocket::StartServer(const wchar_t* ap_ip_address, int a_port, HWND ah_
 	mh_listen_socket = socket(AF_INET, SOCK_STREAM, 0);
 
 	// 소켓 생성에 성공했는지 체크
-	if (mh_listen_socket < 0) return -1; // 소켓 생성 실패!!
+	if (mh_listen_socket < 0) 
+	{
+		TR("mh_listen_socket: 생성 실패\n");
+		return -1; // 소켓 생성 실패!!
+	}
 	
 	// 유니코드 형식으로 전달된 IP주소를 ASCII 형식으로 변경
 	char temp_ip_address[16];
@@ -396,26 +448,28 @@ int ServerSocket::StartServer(const wchar_t* ap_ip_address, int a_port, HWND ah_
 	// 네트워크 장치에 mh_listen_socket을 연결하기 위해 IP주소와 포트번호를 가지고 기본 정보를 구성
 	// 소켓의 네트워크 설정 (주소 체계, IP, 포트번호)
 	sockaddr_in serv_addr;
-	memset((char*)&serv_addr, 0, sizeof(serv_addr)); // serv_addr을 0으로 초기화
-	serv_addr.sin_family = AF_INET; // 주소 체계
-	serv_addr.sin_addr.s_addr = inet_addr(temp_ip_address); // 소켓이 연결할 네트워크 카드 설정(IP)
-	serv_addr.sin_port = htons((unsigned short)a_port); // 포트번호 설정
+	memset((char*)&serv_addr, 0, sizeof(serv_addr));        // serv_addr을 0으로 초기화
+	serv_addr.sin_family = AF_INET;                         // 주소 체계 설정
+	serv_addr.sin_addr.s_addr = inet_addr(temp_ip_address); // 소켓이 연결할 네트워크 카드 설정 (IP)
+	serv_addr.sin_port = htons((unsigned short)a_port);     // 포트번호 설정
 
 
-	// 네트워크 장치에 mh_listen_socket을 연결한다
-	// bind : 서버 소켓 바인딩 (네트워크 카드에 소켓 연결)
+	// 네트워크 장치에 mh_listen_socket을 연결한다 (bind : 서버 소켓 바인딩 - 네트워크 카드에 소켓 연결)
 	// mh_listen_socket을 serv_addr 네트워크 정보를 가진 네트워크 카드에 연결
 	if (bind(mh_listen_socket, (sockaddr*)&serv_addr, sizeof(serv_addr)) < 0) 
-	{
+	{	
+		TR("mh_listen_socket: bind 실패\n");
+
 		// 실패한 경우 소켓을 제거하고 mh_listen_socket 변수를 초기화
 		closesocket(mh_listen_socket);
 		mh_listen_socket = INVALID_SOCKET;
 		return -2; // bind 오류!!
 	}
 
-	// 클라이언트 접속을 허락한다 (이 시점부터 클라이언트의 접속이 가능)
+	// 클라이언트 접속을 허락한다 (이 시점부터 클라이언트의 접속이 가능) 
 	// listen() : 클라이언트의 연결 요청 대기
 	listen(mh_listen_socket, 5); // 5: 대기자수 (여러 클라이언트가 동시에 접속하더라도 한번에 5개만 처리)
+	TR("listen... 클라이언트 연결 요청 대기\n");
 
 
 	// accept : 클라이언트 연결 수립 (실제 클라이언트의 접속)
@@ -432,29 +486,33 @@ int ServerSocket::StartServer(const wchar_t* ap_ip_address, int a_port, HWND ah_
 
 
 // 클라이언트의 접속 처리 (FD_ACCEPT 처리 함수)
-// 서버가 listen 작업을 수행하여 서비스가 시작되면 새로운 클라이언트가 접속할 때마다 FD_ACCEPT 이벤트가 발생
-// -> 윈도우에 메시지 전달 -> 전달된 메시지 처리 (ProcessToAccept)
+// 서버가 listen 작업을 수행하여 서비스가 시작되면 새로운 클라이언트가 접속할 때마다 FD_ACCEPT 이벤트가 발생하고
+// 윈도우에 메시지 전달 -> 전달된 메시지 처리 (ProcessToAccept)
+// wParam: 메시지가 발생하게된 소켓의 핸들 (mh_listen_socket)
+// lParam: 소켓에 에러가 있는지(WSAGETSELECTERROR) or 어떤 이벤트 때문에 발생했는지(WSAGETSELECTEVENT)
+// return -> h_client_socket 생성 실패: -1, 최대 접속인원 초과: -2, 성공: 1
 int ServerSocket::ProcessToAccept(WPARAM wParam, LPARAM lParam)
 {
-	OutputDebugString(L"ServerSocket::ProcessToAccept()\n");
+	TR("ServerSocket::ProcessToAccept - 클라이언트의 접속 처리 (FD_ACCEPT 처리)\n");
 	
-	
-	// wParam: 메시지가 발생하게된 소켓의 핸들 (mh_listen_socket)
-	// lParam: 소켓에 에러가 있는지(WSAGETSELECTERROR) or 어떤 이벤트 때문에 발생했는지(WSAGETSELECTEVENT)
-
+	int i;                // 최대 접속자 수를 카운팅할 때 사용
 	sockaddr_in cli_addr; // 접속한 클라이언트에 대한 네트워크 정보를 저장할 변수
 	int temp_client_info_size = sizeof(cli_addr);
-	int i; // 최대 접속자 수를 카운팅할 때 사용
+
 
 	// 새로 접속을 시도하는 클라이언트와 통신할 소켓을 생성 (accept : 클라이언트 연결 수립, 소켓의 복사본 반환)
 	// listen_socket의 복제를 만들어서 반환 -> 반환된 소켓은 클라이언트와 실제로 통신할 소켓 (listen_socket은 클라이언트의 접속만 받음)
 	// h_client_socket : 클라이언트와 실제로 통신할 소켓, 접속한 클라이언트에 대한 네트워크 정보가 cli_addr에 저장된다
 	SOCKET h_client_socket = accept((SOCKET)wParam, (sockaddr*)&cli_addr, &temp_client_info_size); 
-
-	if (h_client_socket == INVALID_SOCKET) return -1; // 소켓 생성이 실패한 경우!!
+	
+	if (h_client_socket == INVALID_SOCKET)
+	{
+		TR("h_client_socket: 생성 실패\n");
+		return -1; // 소켓 생성이 실패한 경우!!
+	}
 	else // 소켓 생성 성공
 	{
-		UserData* p_user; // 접속한 클라이언트에 대한 정보를 저장할 객체
+		UserData* p_user;            // 접속한 클라이언트에 대한 정보를 저장할 객체 (UserData 객체 or UserAccount 객체)
 		wchar_t temp_ip_address[16]; // 접속한 클라이언트의 ip를 저장할 변수
 
 		// 새로 접속한 클라이언트의 IP를 유니코드 형식의 문자열로 변환
@@ -469,7 +527,7 @@ int ServerSocket::ProcessToAccept(WPARAM wParam, LPARAM lParam)
 			if (p_user->GetHandle() == INVALID_SOCKET)
 			{	
 				p_user->SetHandle(h_client_socket); // 사용자 정보에 소켓을 저장한다
-				p_user->SetIP(temp_ip_address); // 사용자 정보에 IP 주소를 저장한다
+				p_user->SetIP(temp_ip_address);     // 사용자 정보에 IP 주소를 저장한다
 
 				// 연결된 클라이언트가 데이터를 전송(FD_READ)하거나 연결을 해제(FD_CLOSE)하면 
 				// mh_notify_wnd 핸들 값에 해당하는 윈도우로 m_data_notify_id 메시지 ID가 전달되도록 비동기 설정
@@ -484,41 +542,45 @@ int ServerSocket::ProcessToAccept(WPARAM wParam, LPARAM lParam)
 		// 최대 접속자수를 초과하여 더 이상 클라이언트의 접속을 허락할 수 없는 경우
 		if (i == m_max_user_count)
 		{
+			TR("최대 접속자수 초과\n");
+			
 			// 접속자수 초과에 대한 작업을 한다 (클래스 사용자가 직접 구현)
 			ShowLimitError(temp_ip_address);
 
 			closesocket(h_client_socket); // 접속한 소켓을 제거한다
+			// h_client_socket = INVALID_SOCKET;
 
 			return -2; // 사용자 초과!!
 		}
 
 	} // 소켓 생성 성공
 
+	TR("클라이언트의 접속을 정상적으로 처리함\n");
 	return 1; // 정상적으로 접속을 처리함!!
 }
 
 
 // 클라이언트의 네트워크 이벤트 처리 (FD_READ, FD_CLOSE 처리 함수)
+// wParam: 메시지가 발생하게된 소켓의 핸들 (mh_listen_socket)
+// lParam: 소켓에 에러가 있는지(WSAGETSELECTERROR) or 어떤 이벤트 때문에 발생했는지(WSAGETSELECTEVENT)
 void ServerSocket::ProcessClientEvent(WPARAM wParam, LPARAM lParam)
 {	
-	OutputDebugString(L"ServerSocket::ProcessClientEvent()\n");
+	TR("ServerSocket::ProcessClientEvent - 클라이언트의 네트워크 이벤트 처리 (FD_READ, FD_CLOSE 처리)\n");
 	
 	// 데이터 수신(FD_READ) 시에는 정해진 프로토콜 규약대로 읽어서 분석 후 처리하는 ProcessRecvEvent 함수 호출
 	// 접속을 해제할 때 wParam에 저장된 소켓 핸들 값을 사용하여 어떤 사용자인지 찾는다
 	// 그리고 접속을 해제할 때 필요한 작업을 하기 위해 AddWorkForCloseUser 함수 호출
 
-	// wParam: 메시지가 발생하게된 소켓의 핸들 (mh_listen_socket)
-	// lParam: 소켓에 에러가 있는지(WSAGETSELECTERROR) or 어떤 이벤트 때문에 발생했는지(WSAGETSELECTEVENT)
-
+	
 	if (WSAGETSELECTEVENT(lParam) == FD_READ) // 클라이언트가 데이터를 전송한 경우 (데이터 수신)
 	{
-		ProcessRecvEvent((SOCKET)wParam); // 전송된 데이터를 분석해서 처리하는 함수 호출
+		Socket::ProcessRecvEvent((SOCKET)wParam); // 전송된 데이터를 분석해서 처리하는 함수 호출
 	}
 	else // FD_CLOSE (클라이언트가 접속을 해제한 경우)
 	{
 		UserData* p_data = FindUserData((SOCKET)wParam);  // 소켓 핸들을 사용하여 접속을 해제하려는 사용자를 찾는다
-		AddWorkForCloseUser(p_data, 0); // 클라이언트 접속 해제시 추가로 작업할 내용을 수행 (상속받은 클래스에서 재정의)
-		p_data->CloseSocket(0); // 접속을 해제한 소켓을 닫고 초기화
+		AddWorkForCloseUser(p_data, 0);                   // 클라이언트 접속 해제시 추가로 작업할 내용을 수행 (상속받은 클래스에서 재정의)
+		p_data->UserData::CloseSocket(0);                 // 접속을 해제한 소켓을 닫고 초기화
 	}
 }
 
@@ -526,29 +588,30 @@ void ServerSocket::ProcessClientEvent(WPARAM wParam, LPARAM lParam)
 // 클라이언트와 접속을 강제로 해제하기 (연결된 소켓을 닫고 초기화) (UserData::CloseSocket 사용)
 // 접속 해제를 즉시 수행하기 위해, 내부적으로 링거옵션을 설정하여 데이터가 수신되는 중이라도 기다리지 않고 소켓을 제거
 // 정상적인 프로토콜을 사용하는 클라이언트이지만 접속을 강제로 종료시켜야 하는 경우 (ex. 로그인 암호를 계속 틀리면)
+// a_error_code -> 0: 정상종료, -1: 키값이 유효하지 않아서 종료, -2: 바디정보 수신중에 오류 발생
 void ServerSocket::DisconnectSocket(SOCKET ah_socket, int a_error_code)
 {
-	OutputDebugString(L"ServerSocket::DisconnectSocket()\n");
+	TR("ServerSocket::DisconnectSocket - 클라이언트 접속 강제 해제\n");
 	
 	UserData* p_user_data = FindUserData(ah_socket); // 소켓 핸들을 사용하여 사용자 정보를 찾는다
 
-	AddWorkForCloseUser(p_user_data, a_error_code); // 접속을 해제하기 전에 작업해야 할 내용 처리 (상속받은 클래스에서 재정의)
+	AddWorkForCloseUser(p_user_data, a_error_code);  // 접속을 해제하기 전에 작업해야 할 내용 처리 (상속받은 클래스에서 재정의)
 
-	p_user_data->CloseSocket(1); // 해당 사용자의 소켓을 닫는다 (즉시)
+	p_user_data->CloseSocket(1);                     // 해당 사용자의 소켓을 닫는다 (즉시)
 }
 
 
 // 수신된 데이터를 처리하는 함수 (정상적으로 'Head'와 'Body'를 수신한 경우 이 정보들을 사용하여 사용자가 원하는 작업을 처리)
-// 접속된 클라이언트에서 데이터가 전송되면 FD_READ 이벤트 발생 -> 
+// 접속된 클라이언트에서 데이터가 전송되면 FD_READ 이벤트 발생
 // ServerSocket::ProcessClientEvent 호출 -> Socket::ProcessRecvEvent 호출 -> ServerSocket::ProcessRecvData 호출
 int ServerSocket::ProcessRecvData(SOCKET ah_socket, unsigned char a_msg_id, char* ap_recv_data, BS a_body_size)
 {
-	OutputDebugString(L"ServerSocket::ProcessRecvData()\n");
+	TR("ServerSocket::ProcessRecvData - 수신된 데이터를 처리하는 함수\n");
 	
 	UserData* p_user_data = FindUserData(ah_socket); // 소켓 핸들값을 사용하여 이 소켓을 사용하는 사용자를 찾는다
 
 	if (a_msg_id == 251) // 예약 메시지 251 : 클라이언트에 큰용량의 데이터를 전송하기 위해 사용 (message_id)
-	{
+	{	
 		char* p_send_data; // 데이터 전송을 위해 사용할 메모리
 
 		// 현재 전송 위치를 얻는다
@@ -589,6 +652,8 @@ int ServerSocket::ProcessRecvData(SOCKET ah_socket, unsigned char a_msg_id, char
 		::PostMessage(mh_notify_wnd, LM_RECV_COMPLETED, (WPARAM)p_user_data, 0);
 	}
 	
+	TR("수신된 데이터를 정상적으로 처리함\n");
+
 	// 수신된 데이터를 정상적으로 처리함. 만약, 수신 데이터를 처리하던 중에 소켓을 제거했으면 0을 반환해야 한다
 	// 0을 반환하면 이 소켓에 대해 비동기 작업이 중단된다
 	return 1;

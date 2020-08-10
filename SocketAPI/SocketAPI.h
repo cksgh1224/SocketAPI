@@ -18,8 +18,23 @@
 #define _CRT_SECURE_NO_WARNINGS
 #include <WinSock2.h>
 
+
 // 디버그 출력
-// OutputDebugString(L"ddd");
+#include <atlstr.h> // MFC CString 사용하기 위해 추가
+#define TR(s) { CString str; str.Format(L"%s", _T(s)); OutputDebugString(str); } // TR("asd");
+// OutputDebugString(L"asd");
+
+
+
+// 가상 파괴자가 필요한 경우 : 기초, 파생 클래스에서 파괴자를 정의한 경우 (부모 클래스 or 자식 클래스)
+// 기초 클래스의 파괴자가 가상이 아니라면 포인터형에 해당하는(기초 클래스) 파괴자만 호출된다 (객체형에 해당하는 파괴자가 호출되지 않는다)
+// B클래스가 A로부터 상속받고 A,B 클래스 모두 파괴자가 있는 상태에서 A클래스의 파괴자가 가상이 아니라면
+// A* test = new B(); delete test; -> A의 파괴자만 호출 (B의 파괴자는 호출되지 않는다)
+// 그러므로 부모 클래스 or 자식 클래스에서 파괴자를 정의한 경우 해당 클래스, 부모 클래스, 자식 클래스의 파괴자를 모두 가상으로 선언해야함
+
+
+
+
 
 // 소켓으로 데이터를 주고받을때 큰용량의 데이터를 한 번에 전송하면 전송 부하만 심해질 뿐 전송이 제대로 되지 않기 때문에
 // 데이터를 나누어서 전송하고 수신하는 측에서 데이터를 다시 합쳐서 사용한다 (Socket class)
@@ -31,16 +46,16 @@ class ExchangeManager
 {
 protected:
 	int m_total_size, m_current_size; // 전송 또는 수신을 위해 할당된 메모리의 전체 크기와 현재 작업중인 크기
-	char* mp_data; // 전송 또는 수신을 위해 할당된 메모리의 시작 주소
+	char* mp_data;                    // 전송 또는 수신을 위해 할당된 메모리의 시작 주소
 
 public:
-	ExchangeManager(); // 멤버 변수 초기화
+	ExchangeManager();  // 멤버 변수 초기화
 	~ExchangeManager(); // 전송, 수신을 위해 할당된 메모리 제거
 
 	char* MemoryAlloc(int a_data_size); // 전송, 수신에 사용할 메모리 할당 (a_data_size에 할당할 크기를 명시하면 할당된 메모리 주소 반환)
-	void DeleteData(); // 전송, 수신에 사용된 메모리 제거
+	void DeleteData();                  // 전송, 수신에 사용된 메모리 제거
 
-	inline int GetTotalSize() { return m_total_size; } // 할당된 메모리 크기 반환
+	inline int GetTotalSize() { return m_total_size; }     // 할당된 메모리 크기 반환
 	inline int GetCurrentSize() { return m_current_size; } // 현재 작업중인 메모리 위치 반환
 };
 
@@ -71,26 +86,32 @@ public:
 class RecvManager : public ExchangeManager
 {
 public:
-	int AddData(char* ap_data, int a_size); // 수신된 데이터를 기존에 수신된 데이터에 추가 
+	int AddData(char* ap_data, int a_size);    // 수신된 데이터를 기존에 수신된 데이터에 추가 
 
 	inline char* GetData() { return mp_data; } // 수신된 데이터를 하나로 합친 메모리의 시작 주소를 얻는다
 };
 
 
 
+
+
 // 네트워크 프레임 구조 (Head + Body)
 // Head 4byte : 구분값 1byte, Message ID 1byte, Body size 2byte
-// 구분값 : 네트워크로 데이터가 수신되었을 때, 이 데이터가 내가 원하는 데이터인지 체크 (1byte)
+// 구분값 : 네트워크로 데이터가 수신되었을 때 이 데이터가 내가 원하는 데이터인지 체크 (1byte)
 // Message ID : Body에 저장된 데이터의 종류를 구분 (ex. Message ID가 1이면 Body에 저장된 값이 로그인 정보, 2이면 채팅 데이터) (1byte)
 // Body size : Body에 저장된 데이터의 크기 (2byte)
 // Body : 프로그램이 어떤 작업을 위해 실제로 사용할 정보가 저장 (크기 : Head의 Body size)
 
-typedef unsigned short BS; // Body size (2byte)
-#define HEAD_SIZE 2+sizeof(BS) // Head size (key + message_id + body_size)
-#define LM_SEND_COMPLETED 29001 // 대용량 데이터가 전송 완료 되었을 때 사용할 메시지 (윈도우에서 전송이 완료되었음을 알리고 싶다면 LM_SEND_COMPLETED 메시지를 사용)
-#define LM_RECV_COMPLETED 29002 // 대용량 데이터가 전송 완료 되었을 때 사용할 메시지 (윈도우에서 수신이 완료된 데이터를 사용하려면 LM_RECV_COMPLETED 메시지를 사용)
-// a_accept_notify_id = 25001 // FD_ACCEPT 발생시 윈도우에 전달할 메시지 ID
-// a_data_notify_id = 25002   // FD_READ, FD_CLOSE 발생시 윈도우에 전달할 메시지 ID
+typedef unsigned short BS;       // Body size (2byte)
+#define HEAD_SIZE 2+sizeof(BS)   // Head size (key + message_id + body_size)
+
+#define LM_SEND_COMPLETED 29001  // 대용량 데이터가 전송 완료 되었을 때 사용할 메시지 (윈도우에서 전송이 완료되었음을 알리고 싶다면 LM_SEND_COMPLETED 메시지를 사용)
+#define LM_RECV_COMPLETED 29002  // 대용량 데이터가 수신 완료 되었을 때 사용할 메시지 (윈도우에서 수신이 완료된 데이터를 사용하려면 LM_RECV_COMPLETED 메시지를 사용)
+
+// a_accept_notify_id (25001) : FD_ACCEPT 발생시 윈도우에 전달할 메시지 ID           사용하는 쪽(윈도우)에서 해당 메시지를 등록해서 처리
+// a_data_notify_id   (25002) : FD_READ, FD_CLOSE 발생시 윈도우에 전달할 메시지 ID   사용하는 쪽(윈도우)에서 해당 메시지를 등록해서 처리
+
+
 
 
 
@@ -99,17 +120,18 @@ typedef unsigned short BS; // Body size (2byte)
 class Socket
 {
 protected:
-	unsigned char m_valid_key; // 구분값 (프로토콜의 유효성을 체크하기 위한 값)
+	unsigned char m_valid_key;          // 구분값 (프로토콜의 유효성을 체크하기 위한 값)
 	char* mp_send_data, * mp_recv_data; // 전송, 수신에 사용할 메모리
-	HWND mh_notify_wnd; // 윈도우 핸들 (소켓에 새로운 데이터가 수신되었거나 연결 해제되었을 때 발생하는 메시지를 수신할 윈도우 핸들)
-	int m_data_notify_id; // 데이터가 수신되거나 상대편이 접속을 해제했을 때 사용할 메시지 ID (FD_READ, FD_CLOSE 이벤트시에 발생할 메시지) (윈도우 핸들에 넘겨줄 메시지 ID)
+	HWND mh_notify_wnd;                 // 윈도우 핸들 (소켓에 새로운 데이터가 수신되었거나 연결 해제되었을 때 발생하는 메시지를 수신할 윈도우 핸들)
+	int m_data_notify_id;               // 데이터가 수신되거나 상대편이 접속을 해제했을 때 사용할 메시지 ID (FD_READ, FD_CLOSE 발생 시 윈도우 핸들에 넘겨줄 메시지 ID)
 
-
+	
 public:
 	Socket(unsigned char a_valid_key, int a_data_notify_id); // 객체 생성시에 프로토콜 구분 값과 데이터 수신 및 연결 해제에(FD_READ, FD_CLOSE) 사용할 메시지 ID 지정
-	~Socket();
-
-
+	//~Socket(); // 가상으로 선언해야되는거 아닌가? 
+	virtual ~Socket();
+	
+	
 	// 데이터 전송 함수 (전달된 정보를 가지고 mp_send_data 메모리에 약속된 Head 정보를 구성해서 전송)
 	int SendFrameData(SOCKET ah_socket, unsigned char a_message_id, const char* ap_body_data, BS a_body_size);
 
@@ -150,13 +172,11 @@ protected:
 	// 클라이언트에게서 큰 데이터를 수신하기 위해 사용할 객체
 	RecvManager* mp_recv_man; // mh_socket과 연결되어 있는 클라이언트 소켓으로부터 큰 크기의 데이터를 수신할 때 사용 
 
-	wchar_t m_ip_address[16]; // 접속한 클라이언트의 IP 주소
+	wchar_t m_ip_address[16]; // 접속한 클라이언트의 IP 주소를 저장
 
 public:
-	UserData(); // 멤버변수 초기화, 전송과 수신에 사용할 객체 생성
-
-	// 파괴자 : 가상으로 선언
-	virtual ~UserData(); // 사용하던 소켓 제거, 전송과 수신에 사용한 객체 제거
+	UserData(); // 멤버변수 초기화, 전송과 수신에 사용할 객체 생성 
+	virtual ~UserData(); // 사용하던 소켓 제거, 전송과 수신에 사용한 객체 제거 (파괴자 가상으로 선언)
 
 
 	// 멤버변수의 값을 클래스 외부에서 사용할 수 있도록 해줄 인터페이스 함수들
@@ -188,14 +208,22 @@ public:
 class UserAccount : public UserData
 {
 protected:
-	wchar_t id[32]; // 사용자의 아이디
-	wchar_t password[32]; // 사용자의 비밀번호
+	wchar_t id[32];       // 사용자의 아이디
+	wchar_t pw[32];       // 사용자의 비밀번호
+	//
+	wchar_t name[32];     // 사용자의 이름
+	wchar_t nickname[32]; // 사용자의 닉네임
 
 public:
 	wchar_t* GetID() { return id; }
 	void SetID(const wchar_t* ap_id) { wcscpy(id, ap_id); }
-	wchar_t* GetPassword() { return password; }
-	void SetPassword(const wchar_t* ap_password) { wcscpy(password, ap_password); }
+	wchar_t* GetPW() { return pw; }
+	void SetPW(const wchar_t* ap_pw) { wcscpy(pw, ap_pw); }
+	//
+	wchar_t* GetName() { return name; }
+	void SetName(const wchar_t* ap_name) { wcscpy(name, ap_name); }
+	wchar_t* GetNickName() { return nickname; }
+	void SetNickName(const wchar_t* ap_nickname) { wcscpy(nickname, ap_nickname); }
 
 
 	// UserAccount 클래스는 서버용 소켓을 만들고 나서 나중에 사용자가 필요해서 정의하는 것이기 때문에 서버용 소켓을 만드는 시점에는 UserAccount 클래스가 없다
@@ -220,43 +248,44 @@ public:
 
 
 // 서버용 소켓 클래스
-// 서버는 listen (클라이언트의 연결 요청 대기 ) 기능을 수행하는 작업을 제일 먼저 해야 한다.
-// listen 작업이 시작되면 새로운 사용자들이 접속을 하게 되고 접속의 허락과 동시에 사용자 관리 개념이 필요하다.
+// 서버는 listen (클라이언트의 연결 요청 대기) 기능을 수행하는 작업을 제일 먼저 해야 한다
+// listen 작업이 시작되면 새로운 사용자들이 접속을 하게 되고 접속의 허락과 동시에 사용자 관리 개념이 필요하다
 // 접속한 사용자들과 정해진 프로토콜로 통신을 하면서 접속을 해제할 때 까지 네트워크 작업이 지속된다
 class ServerSocket : public Socket
 {
 protected:
-	SOCKET mh_listen_socket; // listen 작업에 사용할 소켓 핸들 (클라이언트의 접속을 받아주는 소켓)
-	int m_accept_notify_id; // 새로운 클라이언트가 접속했을 때 발생할 메시지 ID 값 (FD_ACCEPT 이벤트시에 발생할 메시지 ID)
+	SOCKET mh_listen_socket;         // listen 작업에 사용할 소켓 핸들 (클라이언트의 접속을 받아주는 소켓)
+	int m_accept_notify_id;          // 새로운 클라이언트가 접속했을 때 발생할 메시지 ID 값 (FD_ACCEPT 이벤트시에 발생할 메시지 ID)
 	unsigned short m_max_user_count; // 서버가 관리할 최대 사용자 수 (서버에 접속 가능한 최대 사용자 수 - 최대 65535명)
-	UserData** mp_user_list; // 최대 사용자를 저장하기 위해서 사용할 객체들 (이중 포인터)
+	UserData** mp_user_list;         // 최대 사용자를 저장하기 위해서 사용할 객체들 (이중 포인터)
 
 	// UserData** mp_user_list;  ->  객체 생성자를 직접 사용할 수 있는 형태로 만들기 위해 이중 포인터 사용
 	// 객체 생성자에서 mp_user_list에 접속하는 최대 사용자 수만큼 메모리를 할당해야 하는데 아래와 같이 일차원 포인터를 사용해서 구성할 수도 있다
 	// UserData* mp_user_list = new UserData[m_max_user_count];
-	// 이렇게 구성하면 사용자 정보를 저장할 객체가 UserData로 고정되어 버리기 때문에 다형성 구조를 만드는데 문제가 생긴다
+	// 이렇게 구성하면 사용자 정보를 저장할 객체가 UserData로 고정되어 버리기 때문에 *다형성* 구조를 만드는데 문제가 생긴다 
+	// UserData 객체와, UserAccount 객체 모두 관리할 수 있게 하기 위해 이중 포인터를 사용
 
 public:
 	ServerSocket(unsigned char a_valid_key, unsigned short a_max_user_count, UserData* ap_user_data, int a_accept_notify_id = 25001, int a_data_notify_id = 25002);
 	virtual ~ServerSocket(); // 가상 파괴자
 
-	// 가상 파괴자가 필요한 경우 : 기초, 파생 클래스에서 파괴자를 정의한 경우
-	// 기초 클래스의 파괴자가 가상이 아니라면 포인터형에 해당하는(기초 클래스) 파괴자만 호출된다 (객체형에 해당하는 파괴자가 호출되지 않는다)
-	// B클래스가 A로부터 상속받고 A,B 클래스 모두 파괴자가 있는 상태에서 A클래스의 파괴자가 가상이 아니라면
-	// A* test = new B(); delete test; -> A의 파괴자만 호출 (B의 파괴자는 호출되지 않는다)
-
-
-	// 서버 서비스의 시작 (listen 작업을 수행할 함수) (socket - bind - listen)
+	
+	// 서버 서비스의 시작 (listen 작업 수행) (socket - bind - listen)
+	// return -> mh_listen_socket 생성 실패: -1, bind 실패: -2, 성공: 1
 	int StartServer(const wchar_t* ap_ip_address, int a_port, HWND ah_notify_wnd);
 
 	// 클라이언트의 접속 처리 (FD_ACCEPT 처리 함수)
+	// return -> h_client_socket 생성 실패: -1, 최대 접속인원 초과: -2, 성공: 1
 	int ProcessToAccept(WPARAM wParam, LPARAM lParam);
+
+	// wParam: 메시지가 발생하게된 소켓의 핸들 (mh_listen_socket)
+	// lParam: 소켓에 에러가 있는지(WSAGETSELECTERROR) or 어떤 이벤트 때문에 발생했는지(WSAGETSELECTEVENT)
 
 
 	// 추가작업
-	virtual void AddWorkForAccept(UserData* ap_user) = 0; // Accept 시에 추가적으로 해야할 작업이 있다면 이 함수를 오버라이딩해서 처리	
+	virtual void AddWorkForAccept(UserData* ap_user) = 0;          // Accept 시에 추가적으로 해야할 작업이 있다면 이 함수를 오버라이딩해서 처리	
 	virtual void ShowLimitError(const wchar_t* ap_ip_address) = 0; // 최대 사용자수 초과시에 추가적으로 해야할 작업이 있다면 이 함수를 오버라이딩해서 처리
-
+	
 
 	// 클라이언트의 네트워크 이벤트 처리 (FD_READ, FD_CLOSE 처리 함수)
 	void ProcessClientEvent(WPARAM wParam, LPARAM lParam);
@@ -267,15 +296,14 @@ public:
 	virtual void AddWorkForCloseUser(UserData* ap_user, int a_error_code) = 0;
 	
 
-	// 각종 네트워크 이벤트에 의해 메시지가 발생하면, 해당 이벤트가 발생한 소켓의 핸들이 메시지의 wParam항목으로 전달된다
-	// 서버는 여러 명의 사용자가 동시에 접속해서 사용하기 때문에 해당 소켓이 어떤 사용자의 소켓인지 알 수 없다
+	
+	// 서버는 여러 명의 사용자가 동시에 접속해서 사용하기 때문에 해당 소켓이 어떤 사용자의 소켓인지 알 수 없다 -> FindUserIndex, FindUserData 사용
 	
 	// 소켓 핸들을 사용하여 어떤 사용자인지 찾는다 (찾으면 사용자의 위치를 반환)
 	inline int FindUserIndex(SOCKET ah_socket)
 	{
 		for (int i = 0; i < m_max_user_count; i++)
 			if (mp_user_list[i]->GetHandle() == ah_socket) return i;
-
 		return -1;
 	}
 
@@ -284,19 +312,17 @@ public:
 	{
 		for (int i = 0; i < m_max_user_count; i++)
 			if (mp_user_list[i]->GetHandle() == ah_socket) return mp_user_list[i];
-
 		return NULL;
 	}
 
 
 	// 클라이언트와 접속을 강제로 해제하기 (연결된 소켓을 닫고 초기화) (UserData::CloseSocket 사용)
-	void DisconnectSocket(SOCKET ah_socket, int a_error_code);
-
+	virtual void DisconnectSocket(SOCKET ah_socket, int a_error_code);
 
 	// 수신된 데이터를 처리하는 함수
 	virtual int ProcessRecvData(SOCKET ah_socket, unsigned char a_msg_id, char* ap_recv_data, BS a_body_size);
 
-
+	
 	// 서버에서 관리하는 전체 사용자에 대한 정보나 최대 사용자 수를 외부에서 이용할 수 있도록 해주는 함수
 	inline UserData** GetUserList() { return mp_user_list; } // 전체 사용자에 대한 정보
 	unsigned short GetMaxUserCount() { return m_max_user_count; } // 최대 사용자 수
