@@ -125,17 +125,15 @@ protected:
 	HWND mh_notify_wnd;                 // 윈도우 핸들 (소켓에 새로운 데이터가 수신되었거나 연결 해제되었을 때 발생하는 메시지를 수신할 윈도우 핸들)
 	int m_data_notify_id;               // 데이터가 수신되거나 상대편이 접속을 해제했을 때 사용할 메시지 ID (FD_READ, FD_CLOSE 발생 시 윈도우 핸들에 넘겨줄 메시지 ID)
 
-	
 public:
 	Socket(unsigned char a_valid_key, int a_data_notify_id); // 객체 생성시에 프로토콜 구분 값과 데이터 수신 및 연결 해제에(FD_READ, FD_CLOSE) 사용할 메시지 ID 지정
-	//~Socket(); // 가상으로 선언해야되는거 아닌가? 
 	virtual ~Socket();
 	
 	
-	// 데이터 전송 함수 (전달된 정보를 가지고 mp_send_data 메모리에 약속된 Head 정보를 구성해서 전송)
+	// 데이터 전송 함수 (전달된 정보를 가지고 mp_send_data 메모리에 약속된 Head 정보를 구성해서 전송) (return -> 성공:1, 실패:0)
 	int SendFrameData(SOCKET ah_socket, unsigned char a_message_id, const char* ap_body_data, BS a_body_size);
 
-	// 안정적인 데이터 수신 (재시도 수신)
+	// 안정적인 데이터 수신 (재시도 수신) (return -> 성공:1, 실패:0)
 	int ReceiveData(SOCKET ah_socket, BS a_body_size);
 
 	// 데이터가 수신되었을 때 수신된 데이터를 처리하는 함수
@@ -267,10 +265,10 @@ protected:
 
 public:
 	ServerSocket(unsigned char a_valid_key, unsigned short a_max_user_count, UserData* ap_user_data, int a_accept_notify_id = 25001, int a_data_notify_id = 25002);
-	virtual ~ServerSocket(); // 가상 파괴자
+	virtual ~ServerSocket();
 
 	
-	// 서버 서비스의 시작 (listen 작업 수행) (socket - bind - listen)
+	// 서버 서비스의 시작 (socket - bind - listen)
 	// return -> mh_listen_socket 생성 실패: -1, bind 실패: -2, 성공: 1
 	int StartServer(const wchar_t* ap_ip_address, int a_port, HWND ah_notify_wnd);
 
@@ -291,7 +289,7 @@ public:
 	void ProcessClientEvent(WPARAM wParam, LPARAM lParam);
 
 
-	// 클라이언트 접속 해제시에 추가적인 작업이 필요하다면 상속받은 클래스에서 이 함수를 재정의해서 사용
+	// 클라이언트 접속 해제 시에 추가적으로 해야 할 작업이 있다면 이 함수를 오버라이딩
 	// a_error_code : 0이면 정상종료, -1이면 키값이 유효하지 않아서 종료, -2이면 바디정보 수신중에 오류 발생
 	virtual void AddWorkForCloseUser(UserData* ap_user, int a_error_code) = 0;
 	
@@ -299,7 +297,7 @@ public:
 	
 	// 서버는 여러 명의 사용자가 동시에 접속해서 사용하기 때문에 해당 소켓이 어떤 사용자의 소켓인지 알 수 없다 -> FindUserIndex, FindUserData 사용
 	
-	// 소켓 핸들을 사용하여 어떤 사용자인지 찾는다 (찾으면 사용자의 위치를 반환)
+	// 소켓 핸들을 사용하여 어떤 사용자인지 찾는다 (사용자의 위치 반환)
 	inline int FindUserIndex(SOCKET ah_socket)
 	{
 		for (int i = 0; i < m_max_user_count; i++)
@@ -307,7 +305,7 @@ public:
 		return -1;
 	}
 
-	// 소켓 핸들을 사용하여 어떤 사용자인지 찾는다 (찾으면 사용자 정보를 관리하는 객체의 주소를 반환)
+	// 소켓 핸들을 사용하여 어떤 사용자인지 찾는다 (사용자 정보를 관리하는 객체의 주소 반환)
 	inline UserData* FindUserData(SOCKET ah_socket)
 	{
 		for (int i = 0; i < m_max_user_count; i++)
@@ -316,12 +314,15 @@ public:
 	}
 
 
-	// 클라이언트와 접속을 강제로 해제하기 (연결된 소켓을 닫고 초기화) (UserData::CloseSocket 사용)
+	// DisconnectSocket, ProcessRecvData: Socket 클래스의 순수 가상 함수 재정의 
+
+	// 클라이언트와 접속을 강제로 해제 (연결된 소켓을 닫고 초기화) (UserData::CloseSocket 사용)
 	virtual void DisconnectSocket(SOCKET ah_socket, int a_error_code);
 
-	// 수신된 데이터를 처리하는 함수
+	// 수신된 데이터를 처리하는 함수 (정상적으로 'Head'와 'Body'를 수신한 경우 이 정보들을 사용하여 사용자가 원하는 작업을 처리) (return -> 성공:1)
 	virtual int ProcessRecvData(SOCKET ah_socket, unsigned char a_msg_id, char* ap_recv_data, BS a_body_size);
 
+	
 	
 	// 서버에서 관리하는 전체 사용자에 대한 정보나 최대 사용자 수를 외부에서 이용할 수 있도록 해주는 함수
 	inline UserData** GetUserList() { return mp_user_list; } // 전체 사용자에 대한 정보
@@ -339,34 +340,37 @@ public:
 class ClientSocket : public Socket
 {
 protected:
-	SOCKET mh_socket; // 서버와 통신하기 위해 사용할 소켓 핸들
-	char m_connect_flag; // 0: 접속 안됨, 1: 접속 시도중, 2: 접속중
+	SOCKET mh_socket;        // 서버와 통신하기 위해 사용할 소켓 핸들
+	int m_connect_flag;      // 0: 접속 안됨, 1: 접속 시도중, 2: 접속중
 	int m_connect_notify_id; // 서버에 접속을 시도한 결과를 알려줄 윈도우 메시지 ID (FD_CONNECT)
-	SendManager m_send_man; // 서버에 큰 데이터를 전송하기 위해 사용할 객체
-	RecvManager m_recv_man; // 서버에 큰 데이터를 수신하기 위해 사용할 객체
+	SendManager m_send_man;  // 서버에 큰 데이터를 전송하기 위해 사용할 객체
+	RecvManager m_recv_man;  // 서버에 큰 데이터를 수신하기 위해 사용할 객체
 
 public:
-	ClientSocket(unsigned char a_valid_key, int a_connect_notify_id = 26001, int a_data_notify_id = 26002);
 	// a_connect_notify_id : FD_CONNECT 발생시 윈도우에 전달할 메시지 ID
 	// a_data_notify_id    : FD_READ, FD_CLOSE 발생시 윈도우에 전달할 메시지 ID
+	ClientSocket(unsigned char a_valid_key, int a_connect_notify_id = 26001, int a_data_notify_id = 26002); 
 	virtual ~ClientSocket();
 
 
-	// 서버에 접속하기
+	// 서버에 접속하기 (return -> 중복 시도 또는 중복 접속:0, 성공:1)
 	int ConnectToServer(const wchar_t* ap_ip_address, int a_port_num, HWND ah_notify_wnd); 
 
-	// 접속 시도에 대한 결과 처리하기 (FD_CONNECT)
+	// 접속 시도에 대한 결과 처리하기 (FD_CONNECT) (return -> 접속 성공:1, 접속 실패:0)
 	int ResultOfConnection(LPARAM lParam); 
 
-	// 데이터 수신 처리와 서버 연결 해제에 대한 처리 (FD_READ, FD_CLOSE)
+	// 데이터 수신 처리와 서버 연결 해제에 대한 처리 (FD_READ, FD_CLOSE) (return -> 발생한 이벤트 종류 FD_READ:1, FD_CLOSE:0)
 	int ProcessServerEvent(WPARAM wParam, LPARAM lParam); 
 
-	// 서버와 접속을 강제로 해제하기
-	void DisconnectSocket(SOCKET ah_socket, int a_error_code);
+	// 데이터 전송 함수 (전달된 정보를 가지고 mp_send_data 메모리에 약속된 Head 정보를 구성해서 전송) (return -> 성공:1, 실패:0)
+	// int Socket::SendFrameData(SOCKET ah_socket, unsigned char a_message_id, const char* ap_body_data, BS a_body_size) 오버로딩
+	int SendFrameData(unsigned char a_message_id, const char* ap_body_data, BS a_body_size); 
 
-	
-	// 데이터 전송 함수 (전달된 정보를 가지고 mp_send_data 메모리에 약속된 Head 정보를 구성해서 전송)
-	int SendFrameData(unsigned char a_message_id, const char* ap_body_data, BS a_body_size); // Socket::SendFrameData 오버로딩
+
+	// DisconnectSocket, ProcessRecvData: Socket 클래스의 순수 가상 함수 재정의 
+
+	// 서버와 접속을 강제로 해제하기
+	virtual void DisconnectSocket(SOCKET ah_socket, int a_error_code);
 
 	// 수신된 데이터를 처리하는 함수
 	virtual int ProcessRecvData(SOCKET ah_socket, unsigned char a_msg_id, char* ap_recv_data, BS a_body_size);
