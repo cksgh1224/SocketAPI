@@ -119,8 +119,6 @@ int RecvManager::AddData(char* ap_data, int a_size)
 // 객체 생성시에 프로토콜 구분 값과 데이터 수신 및 연결 해제에 사용할 메시지 ID 지정
 Socket::Socket(unsigned char a_valid_key, int a_data_notify_id)
 {
-	TR("Socket::Socket\n");
-	
 	m_valid_key = a_valid_key;                   // 사용자가 지정한 프로토콜 구분 값 저장
 	mp_send_data = new char[8192];               // 전송용으로 사용할 메모리 할당 (8kbyte)
 	mp_recv_data = new char[8192];               // 수신용으로 사용할 메모리 할당 (8kbyte)
@@ -138,8 +136,6 @@ Socket::Socket(unsigned char a_valid_key, int a_data_notify_id)
 
 Socket::~Socket()
 {
-	TR("Socket::~Socket\n");
-
 	// 전송과 수신에 사용하던 메모리 제거
 	delete[] mp_send_data;
 	delete[] mp_recv_data;
@@ -168,12 +164,12 @@ int Socket::SendFrameData(SOCKET ah_socket, unsigned char a_message_id, const ch
 	// (ah_socket) 소켓으로 (mp_send_data) 데이터를 (HEAD_SIZE + a_body_size) 크기만큼 보내겠다
 	if (send(ah_socket, mp_send_data, HEAD_SIZE + a_body_size, 0) == HEAD_SIZE + a_body_size)
 	{
-		TR("Socket::SendFrameData 전송 성공\n");
+		TR("Socket::SendFrameData - 전송 성공\n");
 		return 1; // 전송 성공
 	}
 	else
 	{
-		TR("Socket::SendFrameData 전송 실패\n");
+		TR("Socket::SendFrameData - 전송 실패\n");
 		return 0; // 전송 실패	
 	}
 
@@ -220,12 +216,12 @@ int Socket::ReceiveData(SOCKET ah_socket, BS a_body_size)
 
 	if (retry <= 10)
 	{
-		TR("Socket::ReceiveData 데이터 수신 성공\n");
+		TR("Socket::ReceiveData - 데이터 수신 성공\n");
 		return 1; // 수신 성공
 	}
 	else
 	{
-		TR("Socket::ReceiveData 데이터 수신 실패\n");
+		TR("Socket::ReceiveData - 데이터 수신 실패\n");
 		return 0; // 수신 실패
 	}
 
@@ -256,7 +252,7 @@ void Socket::ProcessRecvEvent(SOCKET ah_socket)
 	// 사용자가 지정한 구분값과 일치하는지 체크	
 	if (key == m_valid_key)
 	{
-		TR("정상적인 프로토콜 (key == m_valid_key)\n");
+		TR("Socket::ProcessRecvEvent - 정상적인 프로토콜\n");
 
 		recv(ah_socket, (char*)&msg_id, 1, 0);             // Message ID 수신 (1byte)
 		recv(ah_socket, (char*)&body_size, sizeof(BS), 0); // Body size 수신  (2byte)
@@ -284,7 +280,7 @@ void Socket::ProcessRecvEvent(SOCKET ah_socket)
 	}
 	else // 구분값이 잘못된 경우, 접속 해체
 	{
-		TR("잘못된 프로토콜 (key != m_valid_key)\n");
+		TR("Socket::ProcessRecvEvent - 잘못된 프로토콜\n");
 		DisconnectSocket(ah_socket, -1);
 	}
 
@@ -294,8 +290,6 @@ void Socket::ProcessRecvEvent(SOCKET ah_socket)
 // ASCII 형식의 문자열을 유니코드로 변환
 void Socket::AsciiToUnicode(wchar_t* ap_dest_ip, char* ap_src_ip)
 {
-	TR("Socket::AsciiToUnicode - ASCII 형식의 문자열을 유니코드로 변환\n");
-	
 	int ip_length = strlen(ap_src_ip) + 1;
 	memset(ap_dest_ip, 0, ip_length << 1);
 
@@ -307,8 +301,6 @@ void Socket::AsciiToUnicode(wchar_t* ap_dest_ip, char* ap_src_ip)
 // 유니코드 형식의 문자열을 ASCII로 변환
 void Socket::UnicodeToAscii(char* ap_dest_ip, wchar_t* ap_src_ip)
 {
-	TR("Socket::UnicodeToAscii - 유니코드 형식의 문자열을 ASCII로 변환\n");
-
 	int ip_length = wcslen(ap_src_ip) + 1; // wcslen : strlen 의 유니코드 버전
 		
 	// 2바이트 형식으로 되어 있는 문자열을 1바이트 형식으로 변경
@@ -325,8 +317,6 @@ void Socket::UnicodeToAscii(char* ap_dest_ip, wchar_t* ap_src_ip)
 // 멤버변수 초기화, 전송과 수신에 사용할 객체 생성
 UserData::UserData()
 {
-	TR("UserData::UserData\n");
-	
 	mh_socket = INVALID_SOCKET; // 소켓 핸들 초기화
 	m_ip_address[0] = 0; // 주소 값 초기화
 	mp_send_man = new SendManager(); // 전송용 객체 생성
@@ -338,8 +328,6 @@ UserData::UserData()
 // 파괴자 : 가상으로 선언
 UserData::~UserData()
 {	
-	TR("UserData::~UserData\n");
-
 	// 소켓이 생성되어 있다면 소켓을 제거
 	if (mh_socket != INVALID_SOCKET) closesocket(mh_socket);
 
@@ -359,7 +347,7 @@ void UserData::CloseSocket(int a_linger_flag)
 	{
 		if (a_linger_flag == 1)
 		{
-			TR("Linger... 소켓을 즉시 닫는다\n");
+			TR("UserData::CloseSocket - 소켓을 즉시 닫는다 (LINGER)\n");
 			LINGER temp_linger = { TRUE, 0 }; // 데이터가 송수신되는 것과 상관없이 소켓을 바로 닫겠다
 			setsockopt(mh_socket, SOL_SOCKET, SO_LINGER, (char*)&temp_linger, sizeof(temp_linger)); // mh_socket소켓의 LINGER 옵션 변경
 		}
@@ -381,8 +369,6 @@ void UserData::CloseSocket(int a_linger_flag)
 ServerSocket::ServerSocket(unsigned char a_valid_key, unsigned short a_max_user_count, UserData* ap_user_data,
 	int a_accept_notify_id, int a_data_notify_id) : Socket(a_valid_key, a_data_notify_id)
 {
-	TR("ServerSocket::ServerSocket\n");
-	
 	m_max_user_count = a_max_user_count;     // 서버에 접속할 최대 사용자 수
 	m_accept_notify_id = a_accept_notify_id; // 새로운 사용자가 접속했을 때 발생할 메시지 ID를 저장 (FD_ACCEPT)
 	mh_listen_socket = INVALID_SOCKET;       // Listen 작업용 소켓 초기화
@@ -406,8 +392,6 @@ ServerSocket::ServerSocket(unsigned char a_valid_key, unsigned short a_max_user_
 
 ServerSocket::~ServerSocket()
 {
-	TR("ServerSocket::~ServerSocket\n");
-	
 	// listen 소켓이 생성되어 있다면 제거
 	if (mh_listen_socket != INVALID_SOCKET) closesocket(mh_listen_socket);
 
@@ -436,7 +420,7 @@ int ServerSocket::StartServer(const wchar_t* ap_ip_address, int a_port, HWND ah_
 	// 소켓 생성에 성공했는지 체크
 	if (mh_listen_socket < 0) 
 	{
-		TR("mh_listen_socket: 생성 실패\n");
+		TR("ServerSocket::StartServer - listen socket 생성 실패\n");
 		return -1; // 소켓 생성 실패!!
 	}
 	
@@ -458,7 +442,7 @@ int ServerSocket::StartServer(const wchar_t* ap_ip_address, int a_port, HWND ah_
 	// mh_listen_socket을 serv_addr 네트워크 정보를 가진 네트워크 카드에 연결
 	if (bind(mh_listen_socket, (sockaddr*)&serv_addr, sizeof(serv_addr)) < 0) 
 	{	
-		TR("mh_listen_socket: bind 실패\n");
+		TR("ServerSocket::StartServer - bind 실패\n");
 
 		// 실패한 경우 소켓을 제거하고 mh_listen_socket 변수를 초기화
 		closesocket(mh_listen_socket);
@@ -469,7 +453,7 @@ int ServerSocket::StartServer(const wchar_t* ap_ip_address, int a_port, HWND ah_
 	// 클라이언트 접속을 허락한다 (이 시점부터 클라이언트의 접속이 가능) 
 	// listen() : 클라이언트의 연결 요청 대기
 	listen(mh_listen_socket, 5); // 5: 대기자수 (여러 클라이언트가 동시에 접속하더라도 한번에 5개만 처리)
-	TR("listen... 클라이언트 연결 요청 대기\n");
+	TR("ServerSocket::StartServer - 클라이언트 연결 요청 대기 (listen)\n");
 
 
 	// accept : 클라이언트 연결 수립 (실제 클라이언트의 접속)
@@ -507,7 +491,7 @@ int ServerSocket::ProcessToAccept(WPARAM wParam, LPARAM lParam)
 	
 	if (h_client_socket == INVALID_SOCKET)
 	{
-		TR("h_client_socket: 생성 실패\n");
+		TR("ServerSocket::ProcessToAccept - socket 생성 실패 (accept 실패)\n");
 		return -1; // 소켓 생성이 실패한 경우!!
 	}
 	else // 소켓 생성 성공
@@ -542,7 +526,7 @@ int ServerSocket::ProcessToAccept(WPARAM wParam, LPARAM lParam)
 		// 최대 접속자수를 초과하여 더 이상 클라이언트의 접속을 허락할 수 없는 경우
 		if (i == m_max_user_count)
 		{
-			TR("최대 접속자수 초과\n");
+			TR("ServerSocket::ProcessToAccept - 최대 접속자수 초과\n");
 			
 			// 접속자수 초과에 대한 작업을 한다 (클래스 사용자가 직접 구현)
 			ShowLimitError(temp_ip_address);
@@ -555,7 +539,7 @@ int ServerSocket::ProcessToAccept(WPARAM wParam, LPARAM lParam)
 
 	} // 소켓 생성 성공
 
-	TR("클라이언트의 접속을 정상적으로 처리함\n");
+	TR("ServerSocket::ProcessToAccept - 클라이언트의 접속을 정상적으로 처리함\n");
 	return 1; // 정상적으로 접속을 처리함!!
 }
 
@@ -654,7 +638,7 @@ int ServerSocket::ProcessRecvData(SOCKET ah_socket, unsigned char a_msg_id, char
 		::PostMessage(mh_notify_wnd, LM_RECV_COMPLETED, (WPARAM)p_user_data, 0);
 	}
 	
-	TR("수신된 데이터를 정상적으로 처리함\n");
+	TR("ServerSocket::ProcessRecvData - 수신된 데이터를 정상적으로 처리함\n");
 
 	// 수신된 데이터를 정상적으로 처리함. 만약, 수신 데이터를 처리하던 중에 소켓을 제거했으면 0을 반환해야 한다
 	// 0을 반환하면 이 소켓에 대해 비동기 작업이 중단된다
@@ -686,8 +670,6 @@ int ServerSocket::ProcessRecvData(SOCKET ah_socket, unsigned char a_msg_id, char
 ClientSocket::ClientSocket(unsigned char a_valid_key, int a_connect_notify_id, int a_data_notify_id)
 	:Socket(a_valid_key, a_data_notify_id)
 {
-	TR("ClientSocket::ClientSocket\n");
-	
 	m_connect_flag = 0; // 접속 상태를 '접속 안됨'으로 초기화 한다
 	mh_socket = INVALID_SOCKET; // 소켓 핸들을 초기화 한다
 	m_connect_notify_id = a_connect_notify_id; // FD_CONNECT 이벤트 발생시에 사용할 윈도우 메시지 번호 초기화
@@ -695,8 +677,6 @@ ClientSocket::ClientSocket(unsigned char a_valid_key, int a_connect_notify_id, i
 
 ClientSocket::~ClientSocket()
 {
-	TR("ClientSocket::~ClientSocket\n");
-	
 	if (mh_socket != INVALID_SOCKET) // 서버와 통신하기 위한 소켓이 생성되어 있다면 소켓을 제거한다
 	{
 		closesocket(mh_socket);
@@ -716,7 +696,7 @@ int ClientSocket::ConnectToServer(const wchar_t* ap_ip_address, int a_port_num, 
 	// 접속을 시도중이거나 접속된 상태라면 접속을 시도하지 않는다
 	if (m_connect_flag != 0)
 	{
-		TR("중복 시도 또는 중복 접속 오류\n");
+		TR("ClientSocket::ConnectToServer - 중복 시도 또는 중복 접속 오류\n");
 		return 0; // 중복 시도 또는 중복 접속 오류!!
 	}
 
@@ -764,7 +744,7 @@ int ClientSocket::ResultOfConnection(LPARAM lParam)
 		// 접속된 소켓으로 서버에서 데이터가 수신되거나 연결이 해제되었을 때 윈도우 메시지를 받을수 있도록 비동기 설정
 		WSAAsyncSelect(mh_socket, mh_notify_wnd, m_data_notify_id, FD_READ | FD_CLOSE);
 
-		TR("서버 접속 성공\n");
+		TR("ClientSocket::ResultOfConnection - 서버 접속 성공\n");
 		return 1; // 접속 성공
 	}
 	else // 접속에 실패함
@@ -773,7 +753,7 @@ int ClientSocket::ResultOfConnection(LPARAM lParam)
 		mh_socket = INVALID_SOCKET; // 소켓을 초기화 
 		m_connect_flag = 0;         // 접속 상태를 '접속 해제'로 변경
 		
-		TR("서버 접속 실패\n");
+		TR("ClientSocket::ResultOfConnection - 서버 접속 실패\n");
 		return 0; // 접속 실패!!
 	}
 
