@@ -136,8 +136,8 @@ public:
 	// 안정적인 데이터 수신 (재시도 수신) (return -> 성공:1, 실패:0)
 	int ReceiveData(SOCKET ah_socket, BS a_body_size);
 
-	// 데이터가 수신되었을 때 수신된 데이터를 처리하는 함수
-	void ProcessRecvEvent(SOCKET ah_socket);
+	// 데이터가 수신되었을 때 수신된 데이터를 처리하는 함수 (데이터 수신중 오류가 발생해 DisconnectSocket을 호출하면 0을 반환, 정상적으로 처리하면 1반환)
+	int ProcessRecvEvent(SOCKET ah_socket);
 
 
 	// DisconnectSocket, ProcessRecvData 함수는 서버 소켓인지 클라이언트 소켓인지에 따라 내용이 달라질 수 있으므로 

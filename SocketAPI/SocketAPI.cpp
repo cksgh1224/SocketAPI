@@ -229,8 +229,9 @@ int Socket::ReceiveData(SOCKET ah_socket, BS a_body_size)
 }
 
 
-// 데이터가 수신되었을 때 수신된 데이터를 처리하는 함수 
-void Socket::ProcessRecvEvent(SOCKET ah_socket)
+// 데이터가 수신되었을 때 수신된 데이터를 처리하는 함수
+// 데이터 수신중 오류가 발생해 DisconnectSocket을 호출하면 0을 반환, 정상적으로 처리하면 1반환 
+int Socket::ProcessRecvEvent(SOCKET ah_socket)
 {
 	TR("Socket::ProcessRecvEvent - 데이터가 수신되었을 때 수신된 데이터를 처리하는 함수\n");
 	
@@ -238,7 +239,7 @@ void Socket::ProcessRecvEvent(SOCKET ah_socket)
 	// 수신하는 과정에서 끊어 읽기, 재시도 읽기에 의해 FD_READ 이벤트가 과도하게 발생할 수 있으므로
 	// 비동기 처리 (WSAASyncSelect)를 이용해 FD_READ 이벤트가 추가로 발생하지 않도록 설정
 	// 수신 작업 완료후 FD_READ 이벤트를 수신할 수 있도록 비동기를 다시 걸어준다
-
+	
 	unsigned char msg_id; // msg_id : Body에 저장된 데이터의 종류를 구분 (message_id)
 	BS body_size;
 
@@ -265,7 +266,7 @@ void Socket::ProcessRecvEvent(SOCKET ah_socket)
 				// 데이터를 수신하다 오류가 발생한 경우 연결된 소켓을 해제
 				// DisconnectSocket 함수는 상속받은 자식 클래스에서 오버라이딩 으로 재정의하여 자신들이 원하는 작업을 추가할 함수
 				DisconnectSocket(ah_socket, -2);
-				return;
+				return 0;
 			}
 		}
 		
@@ -282,8 +283,10 @@ void Socket::ProcessRecvEvent(SOCKET ah_socket)
 	{
 		TR("Socket::ProcessRecvEvent - 잘못된 프로토콜\n");
 		DisconnectSocket(ah_socket, -1);
+		return 0;
 	}
 
+	return 1; // 정상적으로 처리함
 }
 
 
@@ -771,11 +774,16 @@ int ClientSocket::ProcessServerEvent(WPARAM wParam, LPARAM lParam)
 	// 접속이 해제 되었을 때, 추가적인 메시지를 사용하지 않고 이 함수의 반환값으로 구별해서 사용할 수 있도록
 	// FD_READ는 1, FD_CLOSE는 0값을 반환하도록 구현
 	int state;
-
+	
 	if (WSAGETSELECTEVENT(lParam) == FD_READ) // 서버에서 데이터를 전송한 경우
 	{
-		state = 1;
-		Socket::ProcessRecvEvent((SOCKET)wParam); // 수신된 데이터를 처리하기 위한 함수 호출
+		// 수신된 데이터를 처리하기 위한 함수 호출 (ProcessRecvEvent: 에러가 발생하면 소켓을 제거하고 0반환, 정상적으로 처리했으면 1반환)
+		if (Socket::ProcessRecvEvent((SOCKET)wParam) == 0)
+		{
+			// FD_READ 메시지가 발생했더라도 ProcessRecvEvent에서 0을 반환하면 데이터 수신중 에러가 발생하여 소켓을 제거한 것이므로 FD_CLOSE 메시지를 보내줘야한다
+			state = 0;
+		}
+		else state = 1;
 	}
 	else // 서버가 접속을 해제한 경우 (FD_CLOSE)
 	{
