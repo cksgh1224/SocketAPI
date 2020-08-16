@@ -170,18 +170,32 @@ protected:
 	// 클라이언트에게서 큰 데이터를 수신하기 위해 사용할 객체
 	RecvManager* mp_recv_man; // mh_socket과 연결되어 있는 클라이언트 소켓으로부터 큰 크기의 데이터를 수신할 때 사용 
 
+
+	wchar_t id[32];           // 사용자의 아이디
+	wchar_t pw[32];           // 사용자의 비밀번호
+	wchar_t name[32];         // 사용자의 이름
 	wchar_t m_ip_address[16]; // 접속한 클라이언트의 IP 주소를 저장
 
 public:
-	UserData(); // 멤버변수 초기화, 전송과 수신에 사용할 객체 생성 
-	virtual ~UserData(); // 사용하던 소켓 제거, 전송과 수신에 사용한 객체 제거 (파괴자 가상으로 선언)
+	UserData();  // 멤버변수 초기화, 전송과 수신에 사용할 객체 생성 
+	~UserData(); // 사용하던 소켓 제거, 전송과 수신에 사용한 객체 제거
 
 
-	// 멤버변수의 값을 클래스 외부에서 사용할 수 있도록 해줄 인터페이스 함수들
 	inline SOCKET GetHandle() { return mh_socket; }
 	inline void SetHandle(SOCKET ah_socket) { mh_socket = ah_socket; }
+
 	inline SendManager* GetSendMan() { return mp_send_man; }
 	inline RecvManager* GetRecvMan() { return mp_recv_man; }
+
+	wchar_t* GetID() { return id; }
+	void SetID(const wchar_t* ap_id) { wcscpy(id, ap_id); }
+
+	wchar_t* GetPW() { return pw; }
+	void SetPW(const wchar_t* ap_pw) { wcscpy(pw, ap_pw); }
+
+	wchar_t* GetName() { return name; }
+	void SetName(const wchar_t* ap_name) { wcscpy(name, ap_name); }
+
 	inline wchar_t* GetIP() { return m_ip_address; }
 	inline void SetIP(const wchar_t* ap_ip_address) { wcscpy(m_ip_address, ap_ip_address);  }
 
@@ -190,52 +204,9 @@ public:
 	// 이 클래스가 가지고 있어서 매번 GetHandle, SetHandle 함수를 반복적으로 사용해야 하는 불편함이 있다
 	// 그래서 아래와 같이 CloseSocket 함수를 추가로 제공한다
 	void CloseSocket(int a_linger_flag); // 연결된 소켓을 닫고 초기화
-
-
-	// 다형성 적용 시, 동일한 클래스를 확장할 때 이 함수를 사용한다 (UserAccount)
-	virtual UserData* CreateObject() { return new UserData; }
 };
 
 
-
-// 로그인 개념을 사용하기 위해 아이디나 암호 같은 정보를 추가로 관리할 필요가 있다면
-// UserData에서 상속받은 새로운 클래스 UserAccount를 만들어서 사용
-// UserAccount 클래스는 UserData에서 상속받았기 때문에 다형성을 적용하면 UserAccount로 만들어진 객체의 주소를 UserData클래스의 포인터로 사용할 수 있다
-// 따라서 서버용 소켓이 UserData클래스의 포인터를 사용해서 프로그램이 되어 있더라도 
-// UserAccount로 메모리를 동적할당해서 넘겨주면 서버용 소켓 내부적으로는 UserAccount클래스로 만들어진 객체가 사용된다
-class UserAccount : public UserData
-{
-protected:
-	wchar_t id[32];       // 사용자의 아이디
-	wchar_t pw[32];       // 사용자의 비밀번호
-	//
-	wchar_t name[32];     // 사용자의 이름
-	wchar_t nickname[32]; // 사용자의 닉네임
-
-public:
-	wchar_t* GetID() { return id; }
-	void SetID(const wchar_t* ap_id) { wcscpy(id, ap_id); }
-	wchar_t* GetPW() { return pw; }
-	void SetPW(const wchar_t* ap_pw) { wcscpy(pw, ap_pw); }
-	//
-	wchar_t* GetName() { return name; }
-	void SetName(const wchar_t* ap_name) { wcscpy(name, ap_name); }
-	wchar_t* GetNickName() { return nickname; }
-	void SetNickName(const wchar_t* ap_nickname) { wcscpy(nickname, ap_nickname); }
-
-
-	// UserAccount 클래스는 서버용 소켓을 만들고 나서 나중에 사용자가 필요해서 정의하는 것이기 때문에 서버용 소켓을 만드는 시점에는 UserAccount 클래스가 없다
-	// 이 부분을 해결하기 위해 CreateObject 함수 사용
-
-	// 다형성 적용 시, 동일한 클래스를 확장할 때 이 함수를 사용한다
-	virtual UserData* CreateObject() { return new UserAccount; }
-	// CreateObject 함수가 추가되면 다형성이 적용된 소스에서 UserAccount클래스를 모르더라도 CreateObject함수를 사용하면 현재 사용하는 객체와 동일한 객체를 생성할 수 있다
-	// 이것이 가능하려면 소켓 클래스 생성 시에 new UserAccount값을 인자로 넘겨서 사용자 정보를 저장할 클래스를 생성해서 넘겨줘야 된다
-
-	// ex)
-	// ServerSocket my_server(0x27, MAX_USER_COUNT, new UserAccount); // 사용자 정보를 UserAccount로 사용하고 싶다면
-	// ServerSocket my_server(0x27, MAX_USER_COUNT, new UserData);    // 사용자 정보를 UserData로 사용하고 싶다면
-};
 
 
 
@@ -255,8 +226,8 @@ protected:
 	SOCKET mh_listen_socket;         // listen 작업에 사용할 소켓 핸들 (클라이언트의 접속을 받아주는 소켓)
 	int m_accept_notify_id;          // 새로운 클라이언트가 접속했을 때 발생할 메시지 ID 값 (FD_ACCEPT 이벤트시에 발생할 메시지 ID)
 	unsigned short m_max_user_count; // 서버가 관리할 최대 사용자 수 (서버에 접속 가능한 최대 사용자 수 - 최대 65535명)
-	UserData** mp_user_list;         // 최대 사용자를 저장하기 위해서 사용할 객체들 (이중 포인터)
-
+	UserData** mp_user_list;         // 서버에 접속한 사용자 저장 (이중 포인터)
+	
 	// UserData** mp_user_list;  ->  객체 생성자를 직접 사용할 수 있는 형태로 만들기 위해 이중 포인터 사용
 	// 객체 생성자에서 mp_user_list에 접속하는 최대 사용자 수만큼 메모리를 할당해야 하는데 아래와 같이 일차원 포인터를 사용해서 구성할 수도 있다
 	// UserData* mp_user_list = new UserData[m_max_user_count];
