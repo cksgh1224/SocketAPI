@@ -180,8 +180,10 @@ public:
 	// 멤버변수의 값을 클래스 외부에서 사용할 수 있도록 해줄 인터페이스 함수들
 	inline SOCKET GetHandle() { return mh_socket; }
 	inline void SetHandle(SOCKET ah_socket) { mh_socket = ah_socket; }
+
 	inline SendManager* GetSendMan() { return mp_send_man; }
 	inline RecvManager* GetRecvMan() { return mp_recv_man; }
+
 	inline wchar_t* GetIP() { return m_ip_address; }
 	inline void SetIP(const wchar_t* ap_ip_address) { wcscpy(m_ip_address, ap_ip_address);  }
 
@@ -208,18 +210,29 @@ class UserAccount : public UserData
 protected:
 	wchar_t id[32];       // 사용자의 아이디
 	wchar_t pw[32];       // 사용자의 비밀번호
-	//
 	wchar_t name[32];     // 사용자의 이름
 	wchar_t nickname[32]; // 사용자의 닉네임
 
 public:
+	UserAccount()
+	{
+		id[0] = 0;
+		pw[0] = 0;
+		name[0] = 0;
+		nickname[0] = 0;
+	}
+	virtual ~UserAccount() {}
+
+
 	wchar_t* GetID() { return id; }
 	void SetID(const wchar_t* ap_id) { wcscpy(id, ap_id); }
+
 	wchar_t* GetPW() { return pw; }
 	void SetPW(const wchar_t* ap_pw) { wcscpy(pw, ap_pw); }
-	//
+
 	wchar_t* GetName() { return name; }
 	void SetName(const wchar_t* ap_name) { wcscpy(name, ap_name); }
+
 	wchar_t* GetNickName() { return nickname; }
 	void SetNickName(const wchar_t* ap_nickname) { wcscpy(nickname, ap_nickname); }
 
