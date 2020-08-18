@@ -17,7 +17,7 @@
 // 멤버 변수 초기화
 ExchangeManager::ExchangeManager()
 {
-	mp_data = nullptr;
+	mp_data = NULL;
 	m_total_size = 0;
 	m_current_size = 0;
 }
@@ -36,14 +36,14 @@ char* ExchangeManager::MemoryAlloc(int a_data_size)
 	// 기존에 사용하던 메모리(m_total_size)와 현재 필요한 메모리 크기(a_data_size)가 동일하면 다시 메모리를 할당할 필요가 없다
 	if (m_total_size != a_data_size)
 	{
-		if (mp_data != nullptr) delete[] mp_data; // 이미 할당된 메모리가 있으면 제거
-		mp_data = new char[a_data_size]; // 필요한 만큼 동적 메모리 할당
-		m_total_size = a_data_size; // 할당된 크기 기억
+		if (mp_data != NULL) delete[] mp_data; // 이미 할당된 메모리가 있으면 제거
+		mp_data = new char[a_data_size];       // 필요한 만큼 동적 메모리 할당
+		m_total_size = a_data_size;            // 할당된 크기 기억
 	}
 
 	m_current_size = 0; // 작업 위치를 가장 첫 위치로 초기화
 	
-	return mp_data; // 할당된 메모리의 시작 위치 반환
+	return mp_data;    // 할당된 메모리의 시작 위치 반환
 }
 
 // 전송, 수신에 사용된 메모리 제거
@@ -51,10 +51,10 @@ void ExchangeManager::DeleteData()
 {	
 	TR("ExchangeManager::DeleteData - 전송, 수신에 사용된 메모리 제거\n");
 
-	if (mp_data != nullptr) // 할당된 메모리 제거, 작업과 관련된 변수들 초기화
+	if (mp_data != NULL) // 할당된 메모리 제거, 작업과 관련된 변수들 초기화
 	{
 		delete[] mp_data;
-		mp_data = nullptr;
+		mp_data = NULL;
 		m_total_size = 0;
 	}
 }
@@ -125,7 +125,7 @@ Socket::Socket(unsigned char a_valid_key, int a_data_notify_id)
 
 	*(unsigned char*)mp_send_data = a_valid_key; // 전송할 메모리의 선두 1바이트에 구분값을 넣는다	
 
-	mh_notify_wnd = nullptr;                     // 데이터 수신 및 연결 해제 메시지를 받을 윈도우 핸들 값 초기화
+	mh_notify_wnd = NULL;                     // 데이터 수신 및 연결 해제 메시지를 받을 윈도우 핸들 값 초기화
 	m_data_notify_id = a_data_notify_id;         // 데이터 수신 및 연결 해제 메시지 ID로 사용할 값 (FD_READ, FD_CLOSE)
 
 	// 소켓 시스템을 사용하도록 설정 
@@ -321,7 +321,13 @@ void Socket::UnicodeToAscii(char* ap_dest_ip, wchar_t* ap_src_ip)
 UserData::UserData()
 {
 	mh_socket = INVALID_SOCKET; // 소켓 핸들 초기화
-	m_ip_address[0] = 0; // 주소 값 초기화
+
+	// 주소 값 초기화
+	id[0] = 0;
+	pw[0] = 0;
+	name[0] = 0;
+	m_ip_address[0] = 0; 
+
 	mp_send_man = new SendManager(); // 전송용 객체 생성
 	mp_recv_man = new RecvManager(); // 수신용 객체 생성
 }
