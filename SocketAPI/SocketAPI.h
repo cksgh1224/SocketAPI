@@ -178,7 +178,7 @@ protected:
 
 public:
 	UserData();  // 멤버변수 초기화, 전송과 수신에 사용할 객체 생성 
-	~UserData(); // 사용하던 소켓 제거, 전송과 수신에 사용한 객체 제거
+	virtual ~UserData(); // 사용하던 소켓 제거, 전송과 수신에 사용한 객체 제거
 
 
 	inline SOCKET GetHandle() { return mh_socket; }
@@ -195,7 +195,7 @@ public:
 
 	wchar_t* GetName() { return name; }
 	void SetName(const wchar_t* ap_name) { wcscpy(name, ap_name); }
-
+	
 	inline wchar_t* GetIP() { return m_ip_address; }
 	inline void SetIP(const wchar_t* ap_ip_address) { wcscpy(m_ip_address, ap_ip_address);  }
 
@@ -204,6 +204,9 @@ public:
 	// 이 클래스가 가지고 있어서 매번 GetHandle, SetHandle 함수를 반복적으로 사용해야 하는 불편함이 있다
 	// 그래서 아래와 같이 CloseSocket 함수를 추가로 제공한다
 	void CloseSocket(int a_linger_flag); // 연결된 소켓을 닫고 초기화
+
+
+	virtual UserData* CreateObject() { return new UserData; }
 };
 
 
