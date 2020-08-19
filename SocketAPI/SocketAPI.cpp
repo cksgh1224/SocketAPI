@@ -513,7 +513,7 @@ int ServerSocket::ProcessToAccept(WPARAM wParam, LPARAM lParam)
 		
 		// 사용자 정보를 저장할 객체들 중에 아직 소켓을 배정받지 않은 객체를 찾아서 현재 접속한 사용자 정보를 저장
 		for (i = 0; i < m_max_user_count; i++)
-		{
+		{	
 			p_user = mp_user_list[i];
 
 			// 사용자 정보의 소켓 핸들 값이 INVALID_SOCKET이면 해당 객체는 미사용중인 객체이다
@@ -541,7 +541,7 @@ int ServerSocket::ProcessToAccept(WPARAM wParam, LPARAM lParam)
 			ShowLimitError(temp_ip_address);
 
 			closesocket(h_client_socket); // 접속한 소켓을 제거한다
-			h_client_socket = INVALID_SOCKET;
+			h_client_socket = INVALID_SOCKET; // 주석?
 
 			return -2; // 사용자 초과!!
 		}
@@ -572,8 +572,12 @@ void ServerSocket::ProcessClientEvent(WPARAM wParam, LPARAM lParam)
 	else // FD_CLOSE (클라이언트가 접속을 해제한 경우)
 	{
 		UserData* p_data = FindUserData((SOCKET)wParam);  // 소켓 핸들을 사용하여 접속을 해제하려는 사용자를 찾는다
-		AddWorkForCloseUser(p_data, 0);                   // 클라이언트 접속 해제시 추가로 작업할 내용을 수행 (상속받은 클래스에서 재정의)
+		
+		//AddWorkForCloseUser(p_data, 0);                   // 클라이언트 접속 해제시 추가로 작업할 내용을 수행 (상속받은 클래스에서 재정의)
+
 		p_data->UserData::CloseSocket(0);                 // 접속을 해제한 소켓을 닫고 초기화
+
+		AddWorkForCloseUser(p_data, 0);                   // 클라이언트 접속 해제시 추가로 작업할 내용을 수행 (상속받은 클래스에서 재정의)
 	}
 }
 
@@ -588,9 +592,11 @@ void ServerSocket::DisconnectSocket(SOCKET ah_socket, int a_error_code)
 	
 	UserData* p_user_data = FindUserData(ah_socket); // 소켓 핸들을 사용하여 사용자 정보를 찾는다
 
-	AddWorkForCloseUser(p_user_data, a_error_code);  // 접속을 해제하기 전에 작업해야 할 내용 처리 (상속받은 클래스에서 재정의)
+	//AddWorkForCloseUser(p_user_data, a_error_code);  // 접속을 해제하기 전에 작업해야 할 내용 처리 (상속받은 클래스에서 재정의)
 
 	p_user_data->CloseSocket(1);                     // 해당 사용자의 소켓을 닫는다 (즉시)
+
+	AddWorkForCloseUser(p_user_data, a_error_code);  // 접속을 해제하기 전에 작업해야 할 내용 처리 (상속받은 클래스에서 재정의)
 }
 
 
@@ -689,7 +695,7 @@ ClientSocket::~ClientSocket()
 	if (mh_socket != INVALID_SOCKET) // 서버와 통신하기 위한 소켓이 생성되어 있다면 소켓을 제거한다
 	{
 		closesocket(mh_socket);
-		mh_socket = INVALID_SOCKET;
+		mh_socket = INVALID_SOCKET; // 주석?
 	}
 		
 }
